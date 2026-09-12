@@ -66,13 +66,30 @@ function impositionPlan(nPages) {
 
   const sheets = [];
   if (mode === '2up') {
-    const Hn = Math.ceil(nPages / 2);
-    if (s.twoUpOrder === 'seq') {
+    if (s.twoUpOrder === 'duplex') {
+      // Frente e verso sincronizados: o miolo é dividido ao meio (pilha
+      // esquerda = páginas 1..H1; pilha direita = H1+1..N). Cada folha A4 é
+      // impressa nos dois lados e cortada ao meio — as duas metades já saem
+      // com a ordem certa, sem precisar reempilhar nada.
+      // Depende de "virar pela borda curta" (mesma convenção do livreto):
+      // a virada espelha a folha esquerda/direita, então o verso troca de
+      // lado em relação à frente — por isso mk(rb, lb) e não mk(lb, rb).
+      const H1 = Math.ceil(nPages / 2);
+      const pairs = Math.ceil(H1 / 2);
+      for (let k = 0; k < pairs; k++) {
+        const lf = 2 * k, lb = 2 * k + 1;             // pilha esquerda: recto/verso
+        const rf = H1 + 2 * k, rb = H1 + 2 * k + 1;   // pilha direita: recto/verso
+        sheets.push(mk(lf < H1 ? lf : null, rf));     // frente da folha
+        sheets.push(mk(rb, lb < H1 ? lb : null));     // verso — lados trocados
+      }
+    } else if (s.twoUpOrder === 'seq') {
       // sequencial: cada folha traz duas páginas seguidas (1-2, 3-4…).
+      const Hn = Math.ceil(nPages / 2);
       for (let k = 0; k < Hn; k++) sheets.push(mk(2 * k, 2 * k + 1));
     } else {
       // corte-e-empilhe: metade esquerda k, metade direita k+H; corte ao meio e
       // ponha a pilha da direita embaixo da esquerda → ordem 1..N, sem intercalar.
+      const Hn = Math.ceil(nPages / 2);
       for (let k = 0; k < Hn; k++) sheets.push(mk(k, k + Hn));
     }
   } else {
@@ -82,7 +99,7 @@ function impositionPlan(nPages) {
       sheets.push(mk(2 * k + 1, Np - 2 - 2 * k));   // verso da folha
     }
   }
-  return { mode, sheetW: sw, sheetH: sh, sheets, duplex: mode === 'booklet' };
+  return { mode, sheetW: sw, sheetH: sh, sheets, duplex: mode === 'booklet' || (mode === '2up' && s.twoUpOrder === 'duplex') };
 }
 
 function sheetFileTag(s) {

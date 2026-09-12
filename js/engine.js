@@ -63,7 +63,7 @@ function migrate(st) {
   else if (s.exportMode === 'letter') { s.exportMode = 'fit'; if (!s.sheet) s.sheet = 'letter'; }
   s.exportMode = ['auto', 'real', 'fit', '2up', 'booklet'].includes(s.exportMode) ? s.exportMode : 'real';
   s.sheet = ['a4', 'letter', 'a3'].includes(s.sheet) ? s.sheet : 'a4';
-  s.twoUpOrder = s.twoUpOrder === 'seq' ? 'seq' : 'stack';
+  s.twoUpOrder = ['seq', 'duplex'].includes(s.twoUpOrder) ? s.twoUpOrder : 'stack';
   s.headingFont = ['sans', 'serif', 'mono'].includes(s.headingFont) ? s.headingFont : 'sans';
   s.exportDPI = clamp(Math.round(num(s.exportDPI, 300)), 150, 600);
   s.showSafeGuide = !!s.showSafeGuide;

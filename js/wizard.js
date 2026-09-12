@@ -8,7 +8,7 @@
    tplThumbSVG/esc/$/newDoc dela) */
 "use strict";
 
-const WIZ_STARTERS = ['bujo', 'semanal', 'diario', 'pautado', 'estudos', 'habitos', 'financeiro', 'branco'];
+const WIZ_STARTERS = ['bujo', 'semanal', 'diario', 'pautado', 'bloco-notas', 'estudos', 'habitos', 'financeiro', 'branco'];
 
 const WIZ_STEPS = [
   { title: 'Que tamanho de papel?', desc: 'Dá pra mudar depois, nas configurações do documento.',
