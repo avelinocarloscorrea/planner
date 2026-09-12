@@ -735,7 +735,14 @@ PAGE_DRAW.weekVertical = (pen, box, o, ctx) => {
   heading(pen, 'Semana · ' + fmtDMY(days[0]) + ' – ' + fmtDMY(days[6]), box.x, box.y, box.w, 11, 8, { color: ctx.ink });
   const top = box.y + 8, ch = box.y + box.h - top;
   const split = !!o.weekendSplit;
-  // colunas: 5 dias úteis (+1 coluna com sáb/dom empilhados) ou 7 dias
+  // colunas: 5 dias úteis (+1 coluna com sáb/dom empilhados) ou 7 dias.
+  // `days[5]`/`days[6]` só são sábado/domingo quando a semana começa na
+  // segunda — com weekStart:'sun' eles seriam sexta/sábado (domingo vira
+  // days[0], no início do array). Por isso os índices são achados pelo
+  // dia da semana de verdade (getDay()), não por posição fixa.
+  const weekdayIdx = [], weekendIdx = [];
+  days.forEach((dt, i) => ((dt.getDay() === 0 || dt.getDay() === 6) ? weekendIdx : weekdayIdx).push(i));
+  weekendIdx.sort((a, b) => (days[a].getDay() === 6 ? 0 : 1) - (days[b].getDay() === 6 ? 0 : 1)); // sábado antes de domingo
   const dayCols = split ? 6 : 7;
   const notesCol = o.notes && box.w >= 120 ? 1 : 0;
   const cw = box.w / (dayCols + notesCol);
@@ -761,20 +768,21 @@ PAGE_DRAW.weekVertical = (pen, box, o, ctx) => {
     const nm = markFn && markFn(dt);
     if (nm) { const t = pen.wrapText(nm, w - 3, 3.6, false, 1)[0]; pen.text(t, x + 1.6, top + 4.3, { size: 3.6, color: ctx.accent, baseline: 'top' }); }
   };
-  for (let i = 0; i < 5; i++) {
-    const x = box.x + i * cw;
+  for (let i = 0; i < (split ? weekdayIdx.length : 5); i++) {
+    const x = box.x + i * cw, dt = split ? days[weekdayIdx[i]] : days[i];
     if (i) pen.line(x, top + 6, x, top + ch, { w: 0.2, color: ctx.faint });
-    dayHead(x, cw, days[i]);
-    fillDay(x + 1.5, cw - 3, top + 8, ch - 10, days[i]);
+    dayHead(x, cw, dt);
+    fillDay(x + 1.5, cw - 3, top + 8, ch - 10, dt);
   }
   if (split) {
     const x = box.x + 5 * cw, halfH = (ch - 8) / 2;
+    const dSat = days[weekendIdx[0]], dSun = days[weekendIdx[1]];
     pen.line(x, top + 6, x, top + ch, { w: 0.2, color: ctx.faint });
     pen.line(x, top + 8 + halfH, x + cw, top + 8 + halfH, { w: 0.15, color: ctx.faint });
-    dayHead(x, cw, days[5]);
-    fillDay(x + 1.5, cw - 3, top + 8, halfH - 3, days[5]);
-    pen.text(DOW3_PT[days[6].getDay()].toUpperCase() + ' ' + days[6].getDate(), x + 1.6, top + 8 + halfH + 1, { size: 5.5, font: 'bold', color: wkCol(ctx, days[6].getDay()), baseline: 'top' });
-    fillDay(x + 1.5, cw - 3, top + 8 + halfH + 6, halfH - 6, days[6]);
+    dayHead(x, cw, dSat);
+    fillDay(x + 1.5, cw - 3, top + 8, halfH - 3, dSat);
+    pen.text(DOW3_PT[dSun.getDay()].toUpperCase() + ' ' + dSun.getDate(), x + 1.6, top + 8 + halfH + 1, { size: 5.5, font: 'bold', color: wkCol(ctx, dSun.getDay()), baseline: 'top' });
+    fillDay(x + 1.5, cw - 3, top + 8 + halfH + 6, halfH - 6, dSun);
   } else {
     for (let i = 5; i < 7; i++) {
       const x = box.x + i * cw;

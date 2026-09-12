@@ -169,13 +169,24 @@ function effectiveExportMode() {
   return { mode: 'real', sheet: s.sheet, auto: true };
 }
 // caixa útil da página `idx` (0-based). recto = página ímpar = índice par.
+//
+// Encadernações com furo (espiral/wire-o/discos/fichário) passam por TODAS as
+// páginas no MESMO lado físico — não alternam de lado a cada página como uma
+// lombada colada/costurada de verdade. "Espelhar margens" (mirrorMargins) só
+// faz sentido pra essas últimas: se estivesse ligado junto com um binding de
+// furo, a margem de folga do furo (innerAdd) cairia no lado ERRADO em toda
+// página par, e o conteúdo colidiria com o furo real — por isso essas
+// encadernações ignoram mirrorMargins aqui e mantêm a margem de furo sempre
+// do mesmo lado (o mesmo lado usado por drawPunch, veja abaixo).
 function contentBox(idx) {
   const s = state.settings, [W, H] = paperWH();
   const recto = (idx % 2 === 0);
-  const innerAdd = BINDINGS[s.binding] ? BINDINGS[s.binding].innerAdd : 0;
+  const bind = BINDINGS[s.binding];
+  const innerAdd = bind ? bind.innerAdd : 0;
   const inner = s.marginInner + innerAdd;
+  const mirror = s.mirrorMargins && !(bind && bind.punch);
   let left, right;
-  if (s.mirrorMargins) {
+  if (mirror) {
     left = recto ? inner : s.marginOuter;
     right = recto ? s.marginOuter : inner;
   } else { left = inner; right = s.marginOuter; }
@@ -287,7 +298,10 @@ function drawCropMarks(pen, W, H, bleed) {
 }
 function drawPunch(pen, W, H, box, kind, forPrint) {
   const b = BINDINGS[kind]; if (!b || !b.punch) return;
-  const edgeLeft = box.recto;
+  // Furo sempre do mesmo lado físico em toda página (ver contentBox) — nunca
+  // alterna por recto/verso, senão o furo real cairia em cima da margem
+  // estreita de metade das páginas.
+  const edgeLeft = true;
   const cx = edgeLeft ? Math.max(4.5, box.x / 2) : W - Math.max(4.5, (W - box.x - box.w) / 2);
   const style = forPrint ? { stroke: '#000', w: 0.15 } : { stroke: '#c4b9a6', w: 0.3 };
   const hole = (y, r) => pen.circle(cx, y, r, style);
