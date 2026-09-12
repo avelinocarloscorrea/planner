@@ -86,7 +86,7 @@ projetos antigos continuam abrindo (o `engine.js` trata a migração).
 Carlos Avelino Correa — <https://github.com/avelinocarloscorrea>
 
 Código-fonte deste repositório: <https://github.com/avelinocarloscorrea/planner>
-(privado por enquanto — a ideia é abrir para a comunidade mais adiante).
+— código aberto sob licença MIT.
 
 ## Licença
 
