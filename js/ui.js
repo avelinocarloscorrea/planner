@@ -63,17 +63,20 @@ function syncDocControls() {
     const [W, H] = paperWH();
     const size = `${W.toFixed(0)}×${H.toFixed(0)} mm`;
     const sheetLabel = ({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4';
+    const twoUpHint = s.twoUpOrder === 'seq'
+      ? `Duas páginas lado a lado por folha, em sequência (1-2, 3-4…). Imprima só a <b>frente</b>. Imprima em <b>100%</b>, sem margens.`
+      : s.twoUpOrder === 'duplex'
+      ? `Miolo dividido em 2 metades. Imprima <b>frente e verso</b> virando pela borda curta e corte ao meio: cada metade já sai pronta, na ordem certa — sem reempilhar nada. Imprima em <b>100%</b>, sem margens.`
+      : `Duas páginas lado a lado por folha. Imprima só a <b>frente</b>, corte ao meio e ponha a metade da direita sob a da esquerda — mantém a ordem. Imprima em <b>100%</b>, sem margens.`;
     const HINTS = {
-      auto: eff.mode === 'fit'
+      auto: eff.mode === '2up'
+        ? `Decide sozinho: como duas páginas do miolo (${size} cada) cabem lado a lado numa folha ${sheetLabel}, aproveita a folha inteira. ${twoUpHint}`
+        : eff.mode === 'fit'
         ? `Decide sozinho: como o miolo (${size}) não fecha uma folha ${sheetLabel}, sai centralizado com <b>marcas de corte</b>. Imprima em <b>100%</b>, sem margens.`
         : `Decide sozinho: como o miolo (${size}) já fecha (ou passa de) uma folha ${sheetLabel}, sai no <b>tamanho exato</b>, sem marca de corte. Imprima em <b>100%</b>, sem margens.`,
       real: `Página no tamanho exato do miolo (${size}), sem marca de corte — pronta para a gráfica. Imprima em <b>100%</b>, sem margens.`,
       fit: `Miolo centralizado numa folha ${sheetLabel} com <b>marcas de corte</b>. Imprima em <b>100%</b>, sem margens, e corte na marca.`,
-      '2up': s.twoUpOrder === 'seq'
-        ? `Duas páginas lado a lado por folha, em sequência (1-2, 3-4…). Imprima só a <b>frente</b>. Imprima em <b>100%</b>, sem margens.`
-        : s.twoUpOrder === 'duplex'
-        ? `Miolo dividido em 2 metades. Imprima <b>frente e verso</b> virando pela borda curta e corte ao meio: cada metade já sai pronta, na ordem certa — sem reempilhar nada. Imprima em <b>100%</b>, sem margens.`
-        : `Duas páginas lado a lado por folha. Imprima só a <b>frente</b>, corte ao meio e ponha a metade da direita sob a da esquerda — mantém a ordem. Imprima em <b>100%</b>, sem margens.`,
+      '2up': twoUpHint,
       booklet: `Páginas reordenadas para virar livreto: imprima <b>frente e verso</b> virando pela borda curta, empilhe e <b>dobre ao meio</b>. Imprima em <b>100%</b>, sem margens.`,
     };
     eh.innerHTML = HINTS[s.exportMode] || '';

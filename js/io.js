@@ -257,17 +257,21 @@ function installPrintRules(ruleList) {
   };
 }
 
-// CSS @page: id de folha conhecido (a4/letter/a3) vira "A4 landscape" em vez
-// de "297mm 210mm" — só a forma com PALAVRA-CHAVE faz o Chrome girar sozinho
-// o seletor Retrato/Paisagem do diálogo de impressão (a forma numérica define
-// o tamanho certo da página, mas não sincroniza aquele seletor, o que confunde
-// quem está imprimindo). Só se aplica quando a folha É um tamanho padrão
-// (fit/2up/livreto); no modo "tamanho real" a folha é o próprio miolo (pode
-// ser A5, B5, bolso…, sem palavra-chave equivalente em CSS) e continua numérica.
+// Impressoras domésticas nem sempre respeitam @page em paisagem — muitas
+// simplesmente encolhem a página inteira pra caber numa folha retrato (o
+// resultado sai bem menor que o esperado, mesmo com o tamanho certo pedido).
+// Em vez de depender disso, para folhas em paisagem (2 por folha/livreto/
+// fit com miolo paisagem) SEMPRE pedimos uma página RETRATO normal — a
+// mesma orientação que toda impressora já espera — e giramos o CONTEÚDO
+// 90° por dentro (função printRotateNeeded/wrap abaixo). Funciona igual em
+// qualquer impressora, sem depender de driver nenhum. Não muda a matemática
+// de frente/verso: girar os dois lados do mesmo jeito equivale a virar a
+// folha original pela borda curta (mesma instrução de sempre).
 const PAGE_SIZE_KEYWORD = { a4: 'A4', letter: 'letter', a3: 'A3' };
+function printRotateNeeded(plan) { return !plan.paper && plan.sheetW > plan.sheetH; }
 function printPageSizeCss(plan, eff) {
   const kw = !plan.paper && PAGE_SIZE_KEYWORD[eff.sheet];
-  if (kw) return kw + ' ' + (plan.sheetW > plan.sheetH ? 'landscape' : 'portrait');
+  if (kw) return kw + ' portrait';
   return n2(plan.sheetW) + 'mm ' + n2(plan.sheetH) + 'mm';
 }
 
@@ -284,6 +288,12 @@ async function printDoc() {
     if (window.__printCleanup) { try { window.__printCleanup(); } catch (e) {} window.__printCleanup = null; }
 
     const SW = n2(plan.sheetW), SH = n2(plan.sheetH);
+    const rotate = printRotateNeeded(plan);
+    // Com rotação, a página física é retrato (SH×SW, invertida) e o conteúdo
+    // (ainda desenhado em coordenadas de paisagem, SW×SH) mora dentro de um
+    // wrapper centralizado e girado 90° — truque de CSS puro, sem depender
+    // do driver da impressora entender "paisagem".
+    const pageW = rotate ? SH : SW, pageH = rotate ? SW : SH;
     const removeRules = installPrintRules([
       '@page{size:' + printPageSizeCss(plan, eff) + ';margin:0}',
       '@media print{' +
@@ -291,9 +301,13 @@ async function printDoc() {
           'height:auto!important;min-height:0!important;overflow:visible!important}' +
         'body>*{display:none!important}' +
         'body>#printRoot{display:block!important}' +
-        '#printRoot .psheet{position:relative;width:' + SW + 'mm;height:' + n2(plan.sheetH - 0.2) + 'mm;' +
+        '#printRoot .psheet{position:relative;width:' + pageW + 'mm;height:' + n2(pageH - 0.2) + 'mm;' +
           'overflow:hidden;background:#fff;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}' +
         '#printRoot .psheet:last-child{page-break-after:auto;break-after:auto}' +
+        (rotate
+          ? '#printRoot .protate{position:absolute;top:50%;left:50%;width:' + SW + 'mm;height:' + SH + 'mm;' +
+              'transform:translate(-50%,-50%) rotate(90deg)}'
+          : '') +
         '#printRoot .pslot{position:absolute}' +
         '#printRoot .pslot>svg{display:block;width:100%;height:100%}' +
         '#printRoot .pmarks{position:absolute;left:0;top:0;width:100%;height:100%}' +
@@ -307,6 +321,9 @@ async function printDoc() {
       const sheet = plan.sheets[si];
       const psheet = document.createElement('div');
       psheet.className = 'psheet';
+      const paintInto = rotate
+        ? (() => { const r = document.createElement('div'); r.className = 'protate'; psheet.appendChild(r); return r; })()
+        : psheet;
       for (const slot of sheet.slots) {
         const pen = SvgPen(W, H, { bg: s.paperBg });
         drawPageInto(pen, pages[slot.src], slot.src,
@@ -319,10 +336,10 @@ async function printDoc() {
         sl.style.width = n2(W * slot.sc) + 'mm';
         sl.style.height = n2(H * slot.sc) + 'mm';
         sl.innerHTML = pen.svg();
-        psheet.appendChild(sl);
+        paintInto.appendChild(sl);
       }
       const ms = planMarksSVG(plan.sheetW, plan.sheetH, sheet);
-      if (ms) psheet.insertAdjacentHTML('beforeend', ms);
+      if (ms) paintInto.insertAdjacentHTML('beforeend', ms);
       root.appendChild(psheet);
       if (si % 40 === 0) { busy('Renderizando ' + (si + 1) + ' / ' + plan.sheets.length + '…'); await new Promise(r => setTimeout(r, 0)); }
     }

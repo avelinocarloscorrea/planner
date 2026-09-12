@@ -148,11 +148,23 @@ function paperWH() {
 // '2up'/'booklet' continuam só manuais — não fazem parte desta decisão.
 function fitsWithinA4(w, h) { return (w <= 210.5 && h <= 297.5) || (w <= 297.5 && h <= 210.5); }
 function isFullSheetWH(w, h, sw, sh) { return (Math.abs(w - sw) < 0.5 && Math.abs(h - sh) < 0.5) || (Math.abs(w - sh) < 0.5 && Math.abs(h - sw) < 0.5); }
+// Duas páginas do miolo cabem lado a lado numa A4 aproveitando pelo menos
+// 85% da folha (ex.: A5 é literalmente a metade de uma A4)? Usa a MESMA
+// geometria de impositionPlan (cols/rows por orientação) para decidir.
+function fits2upEfficiently(w, h, sw, sh) {
+  const portrait = h >= w;
+  const bw = portrait ? Math.max(sw, sh) : Math.min(sw, sh);
+  const bh = portrait ? Math.min(sw, sh) : Math.max(sw, sh);
+  const cols = portrait ? 2 : 1, rows = portrait ? 1 : 2;
+  if (cols * w > bw + 0.5 || rows * h > bh + 0.5) return false;
+  return (cols * w * rows * h) / (bw * bh) >= 0.85;
+}
 function effectiveExportMode() {
   const s = state.settings;
   if (s.exportMode !== 'auto') return { mode: s.exportMode, sheet: s.sheet, auto: false };
   const [W, H] = paperWH();
   if (isFullSheetWH(W, H, 210, 297)) return { mode: 'real', sheet: s.sheet, auto: true };
+  if (fits2upEfficiently(W, H, 210, 297)) return { mode: '2up', sheet: 'a4', auto: true };
   if (fitsWithinA4(W, H)) return { mode: 'fit', sheet: 'a4', auto: true };
   return { mode: 'real', sheet: s.sheet, auto: true };
 }
