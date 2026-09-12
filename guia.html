@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; style-src 'self'; img-src 'self' data:; font-src 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="assets/favicon.svg">
+<title>Guia do usuário — Planner Studio</title>
+<link rel="stylesheet" href="css/guia.css?v=2">
+</head>
+<body>
+<header class="top">
+  <div class="in">
+    <span class="mark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="8" width="44" height="48" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="3.5"/><path d="M22 20h20M22 28h20M22 36h13" stroke="var(--brand)" stroke-width="3.2" stroke-linecap="round"/></svg></span>
+    <span><h1>Guia do usuário</h1><span class="sub">Planner Studio · Esmeralda Paper</span></span>
+    <a class="cta" href="index.html">Abrir a ferramenta <span class="lbl">&rarr;</span></a>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav class="toc">
+    <details class="toc-wrap" open>
+      <summary>Neste guia</summary>
+      <a href="#oque">1. O que é</a>
+      <a href="#comecar">2. Começar por um modelo</a>
+      <a href="#secoes">3. Seções — o coração do miolo</a>
+      <a href="#tipos">4. Tipos de página</a>
+      <a href="#editar">5. Escrever e editar textos</a>
+      <a href="#documento">6. Papel, margens e encadernação</a>
+      <a href="#datas">7. Datas automáticas</a>
+      <a href="#cores">8. Cores, fonte e numeração</a>
+      <a href="#exportar">9. Exportar e imprimir</a>
+      <a href="#projeto">10. Salvar o projeto</a>
+      <a href="#faq">11. Perguntas frequentes</a>
+    </details>
+  </nav>
+
+  <main class="doc">
+    <section id="oque"><h2>1. O que é</h2>
+      <p>O <b>Planner Studio</b> gera o <b>miolo</b> (as páginas internas) de cadernos, planners e agendas: pontilhado, quadriculado, pautado, calendários, semanas, dias, hábitos, refeições, finanças e mais. O resultado é um <b>PDF vetorial</b> pronto para impressão — nítido em qualquer tamanho e com arquivo pequeno.</p>
+      <p class="note">Tudo roda no seu navegador. Nada é enviado a nenhum servidor. Funciona offline.</p>
+    </section>
+
+    <section id="comecar"><h2>2. Começar por um modelo</h2>
+      <p>Na tela inicial escolha um modelo (Bullet Journal, Planner semanal, Agenda diária, Caderno pautado, Estudos, Refeições, Financeiro). Ele monta um documento completo que você ajusta à vontade. Prefere do zero? Clique em <b>Adicionar seção</b> — o menu mostra uma <b>miniatura</b> de cada tipo de página.</p>
+      <figure>
+        <img src="assets/guia/01-inicio.png" alt="Tela inicial do Planner Studio com a lista de modelos prontos" loading="lazy" width="880" height="1476">
+        <figcaption>A tela inicial: escolha um modelo pronto ou comece uma seção do zero.</figcaption>
+      </figure>
+    </section>
+
+    <section id="secoes"><h2>3. Seções — o coração do miolo</h2>
+      <p>O documento é uma lista de <b>seções</b>, no painel esquerdo. Cada seção é um tipo de página repetido N vezes. Exemplo: <i>Capa ×1</i>, <i>Índice ×4</i>, <i>Pontilhado ×180</i>.</p>
+      <ul>
+        <li><b>+ / −</b> na seção muda a quantidade de páginas.</li>
+        <li>Arraste pela alça <b>⠿</b> para reordenar.</li>
+        <li>O menu <b>⋯</b> duplica ou remove.</li>
+        <li>Clique na seção para abrir as <b>opções</b> dela no painel direito: espaçamento, cabeçalho, título, colunas, horários, data de início, e uma <b>cor de tinta própria</b>.</li>
+      </ul>
+      <figure>
+        <img src="assets/guia/02-area.png" alt="Área de trabalho do Planner Studio: lista de seções à esquerda, páginas no centro, opções à direita" loading="lazy" width="1760" height="1100">
+        <figcaption>Seções à esquerda, pré-visualização das páginas no centro e as opções da seção selecionada à direita.</figcaption>
+      </figure>
+    </section>
+
+    <section id="tipos"><h2>4. Tipos de página</h2>
+      <p><b>Básicas:</b> em branco, pontilhado, quadriculado, milimetrado, pautado (com linha de margem), isométrico, pentagrama, caligrafia, Cornell, lista de tarefas, página dividida.</p>
+      <p><b>Planejador:</b> capa, divisória, índice, ano numa página, metas do ano, mês (calendário / lista de dias / hábitos), semana (vertical, horizontal, grade de horas), dia (agenda por hora, foco, 2 por página), refeições, gastos, projeto, revisão, listas de leitura, contatos, <b>texto livre</b>, <b>frase / dedicatória</b>, <b>ano em cores (mood)</b>, <b>rastreador mensal</b> e <b>registro de sono</b>.</p>
+      <p>O <b>mês · calendário</b> aceita <b>números de semana</b> e <b>marcação de dias</b> — escreva uma linha por evento (<code>12 Aniversário</code>, ou <code>12/3 Aniversário</code> só naquele mês) e ele aparece no dia.</p>
+      <figure>
+        <img src="assets/guia/03-tipos.png" alt="Menu Adicionar seção com miniaturas de cada tipo de página" loading="lazy" width="888" height="1216">
+        <figcaption>O menu <b>Adicionar seção</b> traz uma miniatura de cada tipo de página, agrupadas em Básicas e Planejador.</figcaption>
+      </figure>
+    </section>
+
+    <section id="editar"><h2>5. Escrever e editar textos</h2>
+      <p>Além de gerar linhas em branco, o Planner Studio deixa você <b>preencher o conteúdo</b> antes de imprimir:</p>
+      <ul>
+        <li><b>Direto na página:</b> um clique (ou toque) numa página seleciona a seção dela; <b>clicar/tocar de novo</b> abre um editor de texto ali mesmo, com os campos daquele tipo. No celular o editor sobe como uma folha na base da tela.</li>
+        <li><b>Página "Texto":</b> digite um título e parágrafos — o texto quebra sozinho para caber e sai vetorial no PDF. Serve para introdução, instruções, dedicatória, um capítulo.</li>
+        <li><b>Preencher listas:</b> no <b>Índice</b> escreva <code>assunto | 12</code> por linha; nas <b>listas de leitura/filmes</b>, <code>título | autor</code>; em <b>metas do ano</b> e <b>hábitos do mês</b>, um item por linha. Se as entradas não couberem, ele cria mais páginas sozinho.</li>
+        <li><b>Blocos por linha:</b> em várias seções há o campo <b>"um título por linha"</b> — cada linha vira uma página com o título já posto (ex.: uma página por projeto, por matéria, por mês).</li>
+        <li><b>Renomear rótulos:</b> em <b>Textos das páginas</b> troque os textos fixos — NOTAS, TAREFAS, PRIORIDADES, GRATIDÃO, nomes das refeições, "Índice", "pertence a". Vazio = padrão.</li>
+      </ul>
+      <figure>
+        <img src="assets/guia/04-editar.png" alt="Editor de texto aberto sobre uma página do miolo, com os campos daquele tipo ao lado" loading="lazy" width="1760" height="1100">
+        <figcaption>Dois cliques numa página abrem o editor ali mesmo; os mesmos campos ficam no painel direito.</figcaption>
+      </figure>
+      <p><b>Capa.</b> A seção <b>Capa</b> tem 9 estilos (moldura, faixa, editorial, cantoneiras, minimalista…), posição do título, monograma e <b>logo / imagem de fundo</b>: escolha um arquivo do seu computador — ele é reduzido e redesenhado internamente (removendo EXIF/GPS) e fica só neste navegador. O logo tem tamanho e posição ajustáveis; o fundo tem um controle para clarear e manter o texto legível. Tudo sai embutido no PDF.</p>
+      <figure>
+        <img src="assets/guia/05-capa.png" alt="Capa de planner com logo circular próprio, título numa faixa e nome do dono" loading="lazy" width="920" height="1302">
+        <figcaption>Uma capa com logo próprio. A imagem é reduzida e redesenhada no navegador antes de entrar no PDF.</figcaption>
+      </figure>
+    </section>
+
+    <section id="documento"><h2>6. Papel, margens e encadernação</h2>
+      <p>No painel esquerdo, em <b>Documento</b>:</p>
+      <ul>
+        <li><b>Papel:</b> A3, A4, A5, A5 largo, A6, A7, B5, B6, Carta, Meia carta, Pocket, Traveler's, Weeks, quadrado ou medidas próprias.</li>
+        <li><b>Começar em página à direita:</b> nas opções de cada seção — insere uma folha em branco se preciso, para a seção abrir sempre numa página ímpar (frente).</li>
+        <li><b>Margens:</b> superior, inferior, interna (lombada) e externa. Os atalhos <b>Mínimas / Padrão / Confortável / Encadernação</b> preenchem as quatro de uma vez. Ligue <b>Espelhar margens</b> para impressão frente e verso — a margem da lombada troca de lado nas páginas pares. As linhas de pontilhado, quadriculado e pauta ficam <b>centralizadas na área útil</b> e nunca saem cortadas na borda, em qualquer margem.</li>
+        <li><b>Encadernação:</b> por padrão vem <b>sem furos</b> — o miolo carrega limpo. Ao escolher espiral, wire-o, discos ou fichário, a margem interna aumenta e aparece a <b>guia de furos</b> na tela; para marcar os furos no PDF, ligue a opção correspondente.</li>
+        <li><b>Espessura das linhas:</b> em <b>Cores</b>, ajuste de 50% a 200% a força de todos os traços do miolo.</li>
+      </ul>
+    </section>
+
+    <section id="datas"><h2>7. Datas automáticas</h2>
+      <p>Defina o <b>Ano da agenda</b> e se a <b>semana começa</b> na segunda ou no domingo. Para uma agenda que não começa em 1º de janeiro (ano letivo, meio do ano), preencha o <b>1º dia da agenda (AAAA-MM-DD)</b> — todas as seções de mês, semana e dia passam a contar a partir dessa data. As seções <b>avançam sozinhas</b>: uma seção "Mês ×12" vira janeiro…dezembro; "Semana ×52" cobre o ano; "Dia ×30" são 30 dias seguidos. A contagem segue a ordem das seções. Para fixar o começo de uma seção específica, preencha <b>Começar em (AAAA-MM-DD)</b> ou escolha o <b>Mês</b> nas opções dela. O <b>destaque de fins de semana</b> pode ser desligado.</p>
+      <p><b>Data automática:</b> nas páginas simples (pautada, pontilhada, quadriculada, em branco, tarefas) ligue <b>Data automática</b> — cada página ganha uma data no alto (1 dia por página) e o resto fica livre para escrever à mão.</p>
+    </section>
+
+    <section id="cores"><h2>8. Cores, fonte e numeração</h2>
+      <p><b>Paletas:</b> os botões no topo de <b>Cores</b> aplicam um conjunto pronto de tinta + destaque + fundo (Esmeralda, Grafite, Marinho, Ameixa, Floresta, Sépia, Preto e branco). Depois dá para ajustar cada cor à mão. <b>Tinta</b> é a cor de linhas e textos; <b>Destaque</b> pinta fins de semana e títulos. Cada seção pode sobrepor a tinta.</p>
+      <p><b>Fonte dos títulos</b> (em <b>Textos das páginas</b>): sem serifa (padrão), com serifa (elegante) ou monoespaçada. Muda só os títulos; o corpo continua igual.</p>
+      <p><b>Número de página:</b> canto externo, interno, centralizado ou nenhum. Você escolhe em que número começa a contar e quantas páginas iniciais pular (capa, índice), se mostra o <b>total</b> (12 / 208) e um <b>prefixo</b> opcional (“pág.”). O <b>Rodapé em todas as páginas</b> imprime um texto fixo discreto no pé de cada página; cada seção pode ter um <b>rodapé próprio</b> que substitui o global.</p>
+    </section>
+
+    <section id="exportar"><h2>9. Exportar e imprimir</h2>
+      <p>Em <b>Exportação e impressão</b> escolha a <b>Montagem</b> e a <b>Folha</b>. A montagem vale tanto para o PDF quanto para o botão Imprimir.</p>
+      <figure>
+        <img src="assets/guia/06-exportar.png" alt="Painel Exportação e impressão com o seletor de montagem do PDF" loading="lazy" width="594" height="832">
+        <figcaption>O seletor de montagem: tamanho real, 1 por folha com marcas de corte, 2 por folha ou livreto.</figcaption>
+      </figure>
+      <ul>
+        <li><b>Tamanho real (para gráfica):</b> cada página do PDF sai exatamente no tamanho do miolo (mais a sangria, se houver). A gráfica imprime e refila. Uma página por folha.</li>
+        <li><b>1 por folha + marcas de corte:</b> o miolo vem centralizado na folha escolhida (A4, Carta ou A3), com <b>marcas de corte</b> nos quatro cantos. Imprima <b>em 100%</b> e recorte pelas marcas.</li>
+        <li><b>2 por folha (cortar ao meio):</b> duas páginas do miolo lado a lado — ex.: <b>2 A5 numa folha A4</b>. Há duas ordens: <b>Cortar e empilhar</b> (imprime só a frente, corta na linha do meio e põe a pilha da direita embaixo da esquerda — fica 1…N sem intercalar) ou <b>Sequencial</b> (cada folha traz duas páginas seguidas). Quando as duas páginas preenchem a folha, sai só a linha central de corte.</li>
+        <li><b>Livreto — dobrar ao meio:</b> as páginas são <b>reordenadas</b> (imposição de miolo/caderno). Imprima <b>frente e verso</b> virando <b>pela borda curta</b>, empilhe todas as folhas na ordem e <b>dobre a pilha ao meio</b> — você tem um caderninho encadernável a grampo. O programa completa com páginas em branco para fechar em múltiplo de 4.</li>
+      </ul>
+      <ul>
+        <li><b>Imprimir</b> (ou Ctrl/Cmd+P): monta um documento pronto e manda para a impressora usando <b>a mesma montagem</b> escolhida acima (tamanho real, 1 por folha, 2 por folha ou livreto), no tamanho físico exato e respeitando a <b>margem de lombada</b> e a <b>alternância frente/verso</b>. No diálogo do navegador, deixe <b>Margens: Nenhuma</b> e <b>Escala: 100%</b>. Para livreto, escolha <b>frente e verso pela borda curta</b>; para os outros modos frente e verso, pela borda longa.</li>
+        <li><b>PNG</b>: imagem da página atual, na resolução escolhida (200–600 dpi).</li>
+        <li><b>Sangria + marcas de corte</b>: no modo tamanho real, aumente a sangria (3–5 mm) e ligue as marcas de corte para a gráfica.</li>
+      </ul>
+    </section>
+
+    <section id="projeto"><h2>10. Salvar o projeto</h2>
+      <p>O documento fica guardado neste navegador automaticamente. Para backup ou para abrir em outro computador, use <b>Menu ⋯ → Salvar projeto (.json)</b> e depois <b>Abrir projeto…</b>.</p>
+    </section>
+
+    <section id="faq"><h2>11. Perguntas frequentes</h2>
+      <p><b>O PDF sai com borda branca ao imprimir em casa.</b> No diálogo de impressão do sistema escolha “Margens: Nenhuma” e “Escala: 100%”. Impressoras domésticas não imprimem até a borda — deixe uma margem de segurança de ~5 mm.</p>
+      <p><b>Posso mudar o tamanho depois?</b> Sim, a qualquer momento — todas as páginas se recalculam.</p>
+      <p><b>Quantas páginas cabem?</b> Até 600 por seção. Documentos muito grandes deixam a pré-visualização mais lenta, mas o PDF sai normalmente.</p>
+      <p><b>É seguro?</b> Sim. O programa não tem permissão de rede (Content-Security-Policy <code>default-src 'none'</code>). Nada sai do aparelho.</p>
+    </section>
+
+    <p class="back"><a href="index.html">&larr; Abrir o Planner Studio</a></p>
+  </main>
+</div>
+</body>
+</html>

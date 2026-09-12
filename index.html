@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<!-- ============================================================================
+     PRIVACIDADE E SEGURANÇA
+     'default-src none' bloqueia QUALQUER coisa não listada abaixo — inclusive
+     todo envio de dados para fora (fetch, XHR, WebSocket, formulário). O
+     permitido vem só do próprio domínio ('self'). Nenhum texto, nome ou ajuste
+     sai do aparelho.
+     ========================================================================= -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; manifest-src 'self'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="apple-touch-icon" href="assets/icon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f2eee6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Planner">
+<title>Planner Studio</title>
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-400-normal.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-700-normal.woff2">
+<link rel="stylesheet" href="css/base.css?v=024">
+<link rel="stylesheet" href="css/layout.css?v=024">
+<link rel="stylesheet" href="css/studio.css?v=024">
+<link rel="stylesheet" href="css/util.css?v=024">
+<link rel="stylesheet" href="css/print.css?v=024">
+<link rel="stylesheet" href="css/mobile.css?v=024">
+</head>
+<body>
+<div id="app">
+  <div id="bar">
+    <a class="brand" id="brandLink" rel="noopener noreferrer">
+      <span class="mark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="8" width="44" height="48" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="3.5"/><path d="M22 20h20M22 28h20M22 36h13" stroke="var(--brand)" stroke-width="3.2" stroke-linecap="round"/><circle cx="14" cy="16" r="2.6" fill="var(--gold)"/><circle cx="14" cy="26" r="2.6" fill="var(--gold)"/><circle cx="14" cy="36" r="2.6" fill="var(--gold)"/><circle cx="14" cy="46" r="2.6" fill="var(--gold)"/></svg></span>
+      <span class="txt"><span class="t1">Planner Studio</span><span class="t2">Esmeralda&nbsp;Paper</span></span>
+    </a>
+    <span class="bar-sep"></span>
+    <button id="b_addSec" class="primary" data-i="plus">Adicionar seção</button>
+    <span class="bar-sep"></span>
+    <button id="b_undo" class="iconbtn" data-i="undo" title="Desfazer (Ctrl+Z)"></button>
+    <button id="b_redo" class="iconbtn" data-i="redo" title="Refazer (Ctrl+Y)"></button>
+    <span class="bar-sep"></span>
+    <span class="pagenav">
+      <button id="b_prev" class="iconbtn ghost" data-i="chevleft" title="Página anterior"></button>
+      <span id="pageLbl">1 / 1</span>
+      <button id="b_next" class="iconbtn ghost" data-i="chevright" title="Próxima página"></button>
+    </span>
+    <span class="bar-sep"></span>
+    <button id="b_zout" class="iconbtn ghost" data-i="zoomout" title="Reduzir"></button>
+    <span id="zval">50%</span>
+    <button id="b_zin" class="iconbtn ghost" data-i="zoomin" title="Ampliar"></button>
+    <button id="b_fit" class="iconbtn ghost" data-i="fit" title="Ajustar à tela"></button>
+    <span class="bar-grow"></span>
+    <span class="stat" id="stat"></span>
+    <span class="bar-sep"></span>
+    <span class="bar-cluster">
+      <button id="b_pdf" class="accent" data-i="filepdf">PDF</button>
+      <button id="b_png" class="iconbtn" data-i="imagedown" title="PNG da página atual"></button>
+      <button id="b_print" class="iconbtn" data-i="printer" title="Imprimir"></button>
+    </span>
+    <span class="bar-sep"></span>
+    <span class="bar-cluster">
+      <button id="b_pl" class="iconbtn" data-i="panelleft" title="Painel esquerdo ( [ )"></button>
+      <button id="b_pr" class="iconbtn" data-i="panelright" title="Painel direito ( ] )"></button>
+      <button id="b_zen" class="iconbtn" data-i="eye" title="Tela cheia ( . )"></button>
+      <button id="b_more" class="iconbtn" data-i="more" title="Mais opções"></button>
+    </span>
+  </div>
+
+  <aside id="left" class="scrl">
+    <div class="aside-title"><span data-i="book"></span> Miolo</div>
+    <details open><summary><span data-i="list"></span> Seções do documento <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <div id="secList"></div>
+      <button id="b_addSec2" class="wfull" data-i="plus">Adicionar seção</button>
+      <p class="hint">Cada seção vira N páginas iguais no PDF. <b>Toque numa página</b> para selecioná-la; <b>toque de novo</b> para editar o texto ali mesmo.<br><span class="desk-only">Arraste pelo <b>⠿</b> para reordenar. </span>O menu <b>⋯</b> de cada seção move, duplica ou remove.</p>
+    </div></details>
+
+    <div class="aside-title mt16"><span data-i="ruler"></span> Documento</div>
+    <details open><summary><span data-i="page"></span> Papel <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <label>Tamanho <select id="d_paper"></select></label>
+      <div id="d_customRow" class="field-inline" hidden>
+        <label>Largura (mm)<input type="number" id="d_cw" min="40" max="700" step="1"></label>
+        <label>Altura (mm)<input type="number" id="d_ch" min="40" max="700" step="1"></label>
+      </div>
+      <label class="row"><input type="checkbox" id="d_landscape"> Paisagem (deitado)</label>
+    </div></details>
+
+    <details open><summary><span data-i="binding"></span> Margens e encadernação <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <div class="grp" id="d_mPreset">
+        <button class="chip" data-m="min">Mínimas</button>
+        <button class="chip" data-m="std">Padrão</button>
+        <button class="chip" data-m="wide">Confortável</button>
+        <button class="chip" data-m="bind">Encadernação</button>
+      </div>
+      <label>Margem superior <span class="v" id="v_mt"></span><input type="range" id="d_mt" min="0" max="40" step="0.5"></label>
+      <label>Margem inferior <span class="v" id="v_mb"></span><input type="range" id="d_mb" min="0" max="40" step="0.5"></label>
+      <label>Margem interna (lombada) <span class="v" id="v_mi"></span><input type="range" id="d_mi" min="0" max="40" step="0.5"></label>
+      <label>Margem externa <span class="v" id="v_mo"></span><input type="range" id="d_mo" min="0" max="40" step="0.5"></label>
+      <label class="row"><input type="checkbox" id="d_mirror"> Espelhar margens nas páginas pares (impressão frente e verso)</label>
+      <label>Encadernação <select id="d_binding"></select></label>
+      <label class="row"><input type="checkbox" id="d_punch"> Mostrar guia de furos (só na tela)</label>
+      <label class="row" id="d_printPunchRow" hidden><input type="checkbox" id="d_printPunch"> Imprimir os furos no PDF</label>
+    </div></details>
+
+    <details><summary><span data-i="hash"></span> Numeração e corte <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <label>Número de página
+        <select id="d_pnum">
+          <option value="none">Sem número</option>
+          <option value="outer">Canto externo</option>
+          <option value="inner">Canto interno</option>
+          <option value="center">Centralizado</option>
+        </select></label>
+      <label>Começar a contar em <span class="v" id="v_pnumStart"></span><input type="range" id="d_pnumStart" min="0" max="50" step="1"></label>
+      <label>Pular as primeiras N páginas <span class="v" id="v_pnumSkip"></span><input type="range" id="d_pnumSkip" min="0" max="20" step="1"></label>
+      <label class="row"><input type="checkbox" id="d_pnumTotal"> Mostrar total (ex.: 12 / 208)</label>
+      <label>Prefixo do número (opcional) <input type="text" id="d_pnumPrefix" placeholder="ex.: pág." maxlength="12"></label>
+      <label>Rodapé em todas as páginas (opcional) <input type="text" id="d_footer" placeholder="ex.: Esmeralda Paper" maxlength="80"></label>
+      <label>Sangria (bleed) <span class="v" id="v_bleed"></span><input type="range" id="d_bleed" min="0" max="10" step="0.5"></label>
+      <label class="row" id="d_cropRow" hidden><input type="checkbox" id="d_crop"> Marcas de corte no PDF</label>
+    </div></details>
+
+    <details open><summary><span data-i="calendar"></span> Datas <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <label>Ano da agenda <input type="number" id="d_year" min="1900" max="2200" step="1"></label>
+      <label>1º dia da agenda (opcional) <input type="text" id="d_startDate" placeholder="AAAA-MM-DD" maxlength="10" inputmode="numeric"></label>
+      <label>Semana começa em
+        <select id="d_week"><option value="mon">Segunda-feira</option><option value="sun">Domingo</option></select></label>
+      <label class="row"><input type="checkbox" id="d_weekend"> Destacar fins de semana na cor de destaque</label>
+      <p class="hint">Meses, semanas e dias avançam a partir do <b>1º dia</b> (ou de 1º de janeiro do ano). Cada seção também pode ter data/mês próprios.</p>
+    </div></details>
+
+    <details><summary><span data-i="palette"></span> Cores <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <div class="grp" id="d_palette"></div>
+      <label>Tinta (linhas e textos) <input type="color" id="d_ink"></label>
+      <label>Destaque (fins de semana, títulos) <input type="color" id="d_accent"></label>
+      <label>Fundo do papel <input type="color" id="d_paperbg"></label>
+      <button id="d_resetColors" class="wfull">Restaurar cores padrão</button>
+      <label>Espessura das linhas <span class="v" id="v_lineW"></span><input type="range" id="d_lineW" min="0.5" max="2" step="0.1"></label>
+      <label class="row"><input type="checkbox" id="d_guide"> Guia de margem na tela</label>
+    </div></details>
+
+    <details><summary><span data-i="page"></span> Textos das páginas <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <label>Fonte dos títulos
+        <select id="d_headingFont">
+          <option value="sans">Sem serifa (padrão)</option>
+          <option value="serif">Com serifa (elegante)</option>
+          <option value="mono">Monoespaçada (máquina)</option>
+        </select></label>
+      <p class="hint">Renomeie os rótulos fixos. Deixe vazio para usar o padrão.</p>
+      <div id="d_labels"></div>
+    </div></details>
+
+    <details open id="d_exportWrap"><summary><span data-i="download"></span> Exportação e impressão <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <label>Montagem do PDF / impressão
+        <select id="d_exportMode">
+          <option value="real">Tamanho real — 1 página por folha (gráfica)</option>
+          <option value="fit">1 por folha + marcas de corte</option>
+          <option value="2up">2 por folha — cortar ao meio</option>
+          <option value="booklet">Livreto — dobrar ao meio (frente e verso)</option>
+        </select></label>
+      <label id="d_sheetRow">Folha
+        <select id="d_sheet">
+          <option value="a4">A4 — 210 × 297 mm</option>
+          <option value="letter">Carta — 216 × 279 mm</option>
+          <option value="a3">A3 — 297 × 420 mm</option>
+        </select></label>
+      <label id="d_twoUpRow" hidden>Ordem das páginas na folha
+        <select id="d_twoUpOrder">
+          <option value="stack">Cortar e empilhar — sem intercalar</option>
+          <option value="seq">Sequencial — 1-2, 3-4…</option>
+        </select></label>
+      <label>Resolução do PNG
+        <select id="d_dpi"><option value="200">200 dpi</option><option value="300">300 dpi</option><option value="450">450 dpi</option><option value="600">600 dpi</option></select></label>
+      <p class="hint"><b>Tamanho real</b>: a página sai no tamanho do miolo — para a gráfica. <b>1 por folha</b>: miolo centralizado numa folha comum com <b>marcas de corte</b>. <b>2 por folha</b>: duas páginas lado a lado (ex.: 2×A5 numa A4). Imprima <b>só frente</b>, corte na linha do meio e ponha a pilha da direita embaixo da esquerda — fica na ordem. <b>Livreto</b>: as páginas são reordenadas para você imprimir <b>frente e verso</b> (virar pela borda curta), empilhar e <b>dobrar ao meio</b> — vira um caderninho. Imprima sempre em <b>100%</b>, margens <b>Nenhuma</b>.</p>
+    </div></details>
+
+    <p class="hint" id="d_privadoNote"><span class="pill">Privado</span> &nbsp;O documento fica só neste navegador. Para backup use <b>Salvar projeto</b> no menu.
+      <a id="m_acervo" rel="noopener noreferrer" hidden>↗ Acervo — mais ferramentas</a></p>
+  </aside>
+
+  <div id="stage">
+    <div id="sheets"></div>
+    <div id="empty" hidden>
+      <div class="box scrl">
+        <span class="mark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="8" width="44" height="48" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="3.5"/><path d="M22 20h20M22 28h20M22 36h13" stroke="var(--brand)" stroke-width="3.2" stroke-linecap="round"/></svg></span>
+        <h3>Planner Studio</h3>
+        <p>Monte o miolo de um caderno, planner ou agenda e baixe o PDF pronto para impressão. Comece por um modelo:</p>
+        <div id="tplList" class="tpl-list"></div>
+        <button id="e_add" class="primary jcc" data-i="plus">Ou adicionar uma seção do zero</button>
+        <p class="faint">Nada é enviado a nenhum servidor. Funciona offline.</p>
+      </div>
+    </div>
+  </div>
+
+  <aside id="right" class="scrl">
+    <div id="rightEmpty">
+      <div class="aside-title"><span data-i="cursor"></span> Nenhuma seção selecionada</div>
+      Escolha uma seção para editar as opções dela.<br><br>
+      <button id="re_goSecoes" class="wfull mob-only" data-i="list">Ver seções do documento</button>
+      <b>Dicas</b><br>
+      • O <b>+ / −</b> muda quantas páginas a seção gera.<br>
+      • Cada seção pode ter uma cor de tinta própria.<br>
+      <span class="desk-only">• <kbd>Del</kbd> remove a seção selecionada.<br>
+      • <kbd>Ctrl</kbd>+<kbd>Z</kbd> desfaz.</span>
+    </div>
+    <div id="rightSel" hidden>
+      <div class="aside-title"><span data-i="sliders"></span> <span id="rs_title">Seção</span></div>
+      <p class="rs-group" id="rs_group"></p>
+      <label id="rs_countRow">Quantidade de páginas <span class="v" id="rs_countv"></span>
+        <input type="range" id="rs_count" min="1" max="400" step="1"></label>
+      <div id="rs_fields"></div>
+      <div class="btnrow mt10">
+        <button id="rs_dup" data-i="copy">Duplicar seção</button>
+      </div>
+      <button id="rs_del" class="danger wfull" data-i="trash">Remover seção</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ===== casca de celular (≤ 820 px) ===== -->
+<div id="mroot" aria-hidden="true">
+  <header id="mtop">
+    <span class="mbrand">Planner Studio</span>
+    <span class="mpg" id="mpg"></span>
+    <button class="miconbtn" id="mu_undo" data-i="undo" title="Desfazer"></button>
+    <button class="miconbtn" id="mu_redo" data-i="redo" title="Refazer"></button>
+    <button class="miconbtn" id="mu_more" data-i="more" title="Mais"></button>
+  </header>
+  <div id="mbody">
+    <div id="mstageWrap"><!-- #stage entra aqui --></div>
+    <section class="msheet scrl" id="msheet_doc" data-tab="documento" hidden><!-- #left entra aqui --></section>
+    <section class="msheet scrl" id="msheet_sec" data-tab="secao" hidden><!-- #right entra aqui --></section>
+    <section class="msheet scrl" id="msheet_export" data-tab="exportar" hidden>
+      <div class="mx-card">
+        <h3>Formato</h3>
+        <div id="mx_settings"><!-- #d_exportWrap entra aqui no celular --></div>
+      </div>
+      <div class="mx-card">
+        <h3>Baixar</h3>
+        <button class="mbig primary" id="mx_pdf" data-i="filepdf">Baixar PDF</button>
+        <div class="m2"><button class="mbig" id="mx_png" data-i="imagedown">PNG da página</button><button class="mbig" id="mx_print" data-i="printer">Imprimir</button></div>
+      </div>
+      <div class="mx-card">
+        <h3>Projeto</h3>
+        <div class="m2"><button class="mbig" id="mx_save" data-i="save">Salvar .json</button><button class="mbig" id="mx_open" data-i="folder">Abrir .json</button></div>
+        <p class="hint">Tudo fica só neste aparelho. <b>Salvar</b> baixa um arquivo para backup ou para abrir noutro lugar.</p>
+      </div>
+      <div class="mx-card">
+        <h3>Ajuda</h3>
+        <a class="mbig" href="guia.html" target="_blank" rel="noopener noreferrer" data-i="page">Guia do usuário</a>
+      </div>
+    </section>
+    <button id="mfab" data-i="plus" title="Adicionar seção"></button>
+  </div>
+  <nav id="mtabs">
+    <button data-tab="paginas" class="on"><span data-i="page"></span><i>Páginas</i></button>
+    <button data-tab="documento"><span data-i="ruler"></span><i>Documento</i></button>
+    <button data-tab="secao"><span data-i="sliders"></span><i>Seção</i></button>
+    <button data-tab="exportar"><span data-i="download"></span><i>Exportar</i></button>
+  </nav>
+</div>
+
+<button id="zenExit" class="iconbtn" data-i="eyeoff" title="Sair da tela cheia (Esc)" hidden></button>
+
+<div id="menu" class="scrl" hidden>
+  <button id="m_pdf" data-i="filepdf">Exportar PDF</button>
+  <button id="m_png" data-i="imagedown">Exportar PNG (página atual)</button>
+  <button id="m_print" data-i="printer">Imprimir</button>
+  <div class="msep"></div>
+  <button id="m_new" data-i="filenew">Novo documento</button>
+  <button id="m_save" data-i="save">Salvar projeto (.json)</button>
+  <button id="m_open" data-i="folder">Abrir projeto…</button>
+  <div class="msep"></div>
+  <button id="m_install" data-i="download" hidden>Instalar na tela de início</button>
+  <a id="m_guide" href="guia.html" target="_blank" rel="noopener noreferrer"><span data-i="page"></span> Guia do usuário</a>
+  <button id="m_help" data-i="help">Atalhos de teclado</button>
+  <button id="m_privacy" data-i="shield">Privacidade e segurança</button>
+  <button id="m_about" data-i="info">Sobre</button>
+</div>
+
+<input type="file" id="file_open" accept="application/json,.json" hidden>
+<div id="toast" hidden></div>
+<div id="busy" hidden><div class="card"><span class="spin"></span><span id="busyTxt">Processando…</span></div></div>
+
+<dialog id="help">
+  <div class="dhead">Atalhos <button class="iconbtn ghost" data-close data-i="x"></button></div>
+  <div class="dbody scrl"><table>
+    <tr><td><kbd>Ctrl</kbd> + roda</td><td>Zoom no ponto do cursor</td></tr>
+    <tr><td>Roda / arraste com botão do meio</td><td>Rolar / deslocar as páginas</td></tr>
+    <tr><td>PageUp / PageDown · ↑ ↓</td><td>Página anterior / seguinte</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Desfazer / Refazer</td></tr>
+    <tr><td><kbd>Del</kbd></td><td>Remover a seção selecionada</td></tr>
+    <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td>Ocultar painel esquerdo / direito</td></tr>
+    <tr><td><kbd>.</kbd> / <kbd>Esc</kbd></td><td>Tela cheia / sair</td></tr>
+  </table></div>
+</dialog>
+
+<dialog id="privacy">
+  <div class="dhead">Privacidade e segurança <button class="iconbtn ghost" data-close data-i="x"></button></div>
+  <div class="dbody scrl">
+    <p><span class="pill">100% no seu computador</span></p>
+    <p>Este programa <b>não envia nada</b> para servidor nenhum. Textos, nomes, imagens e ajustes nunca saem do navegador.</p>
+    <h4>Mecanismos ativos</h4>
+    <p>• <b>Content-Security-Policy</b> com <code>default-src 'none'</code>: o navegador bloqueia qualquer envio de dados (fetch, XHR, formulário, WebSocket) e qualquer objeto/plugin.<br>
+       • <b>Sem scripts externos</b> (<code>script-src 'self'</code>) e sem código embutido — nada de terceiros roda aqui.<br>
+       • Toda imagem que você adiciona (logo, fundo da capa) é <b>redesenhada internamente</b>: metadados (EXIF/GPS) e conteúdo escondido são removidos, e o arquivo é reduzido antes de entrar no projeto.<br>
+       • O PDF é montado no próprio programa, vetor por vetor.<br>
+       • Projetos abertos (.json) passam pela mesma limpeza; valores fora do padrão são corrigidos.<br>
+       • O documento fica só no armazenamento local deste navegador. Para levar a outro aparelho, use <b>Salvar projeto</b>.</p>
+    <button id="p_wipe" class="danger wfull mt4" data-i="trash">Apagar tudo deste navegador</button>
+  </div>
+</dialog>
+
+<dialog id="about">
+  <div class="dhead">Sobre <button class="iconbtn ghost" data-close data-i="x"></button></div>
+  <div class="dbody scrl">
+    <p><b>Planner Studio</b> — gera o miolo de cadernos, planners e agendas: pontilhado, quadriculado, pautado (com pauta dupla, francesa e de caligrafia), calendários mensais, semanas, dias, hábitos, refeições, finanças, rastreadores e mais — com capa personalizável (logo e imagem de fundo), pronto para impressão em PDF vetorial.</p>
+    <p>Projeto de portfólio de <b>Carlos Avelino Correa</b> — <a href="https://github.com/avelinocarloscorrea" target="_blank" rel="noopener noreferrer">github.com/avelinocarloscorrea</a>.</p>
+    <p>Novo por aqui? Veja o <a href="guia.html" target="_blank" rel="noopener noreferrer">guia do usuário</a>.</p>
+    <p class="faint">Funciona offline. Nenhum dado é coletado.</p>
+  </div>
+</dialog>
+
+<script defer src="js/config.js?v=024"></script>
+<script defer src="js/pen.js?v=024"></script>
+<script defer src="js/pages.js?v=024"></script>
+<script defer src="js/engine.js?v=024"></script>
+<script defer src="js/fonts.js?v=024"></script>
+<script defer src="js/io.js?v=024"></script>
+<script defer src="js/mobile.js?v=024"></script>
+<script defer src="js/install.js?v=024"></script>
+<script defer src="js/ui.js?v=024"></script>
+</body>
+</html>
