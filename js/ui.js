@@ -1064,7 +1064,6 @@ function bindGlobal() {
     document.body.classList.add('onboarding');
     $('#ra_continue').onclick = () => { markAsked(); box.hidden = true; document.body.classList.remove('onboarding'); finishInit(); };
     $('#ra_new').onclick = () => {
-      if (!confirm('Começar um novo documento? O salvo continuará guardado até você editar algo.')) return;
       markAsked(); box.hidden = true;
       state = { settings: { ...DEFAULTS }, sections: [] };
       finishInit();
