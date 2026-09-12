@@ -8,6 +8,10 @@
   #app{display:none!important}
   #mroot{display:grid;grid-template-rows:auto 1fr auto;position:fixed;inset:0;background:var(--stage);z-index:5}
 
+  /* tela inicial sem menus: some com a barra de cima, abas e FAB */
+  body.onboarding #mroot{grid-template-rows:0 1fr 0}
+  body.onboarding #mtop,body.onboarding #mtabs,body.onboarding #mfab{overflow:hidden;visibility:hidden}
+
   /* ---------- barra de cima ---------- */
   #mtop{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--surface);
     border-bottom:1px solid var(--line);box-shadow:var(--sh-1)}

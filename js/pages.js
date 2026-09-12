@@ -665,12 +665,20 @@ PAGE_DRAW.monthCalendar = (pen, box, o, ctx) => {
   const calH = note && o.notes === 'below' ? bodyH * 0.74 : bodyH - (o.mini && wide ? 0 : 0);
   const gridH = o.mini ? calH - 24 : calH;
   const evMap = {};
+  // feriados / eventos do documento (opções "Datas especiais")
+  if (typeof ctx.markOn === 'function') {
+    const dim2 = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    for (let dd = 1; dd <= dim2; dd++) {
+      const nm = ctx.markOn(new Date(d.getFullYear(), d.getMonth(), dd));
+      if (nm) evMap[dd] = nm;
+    }
+  }
   String(o.events || '').split('\n').forEach(ln => {
     // "12 texto"  ou  "12/03 texto" (só nesse mês)
     const m = ln.trim().match(/^(\d{1,2})(?:\/(\d{1,2}))?\s+(.+)$/);
     if (!m) return;
     if (m[2] && +m[2] !== d.getMonth() + 1) return;
-    evMap[+m[1]] = m[3].trim();
+    evMap[+m[1]] = m[3].trim();   // evento da própria seção sobrepõe
   });
   calGrid(pen, box.x, top, calW, gridH, d, ws, ctx, { weekNums: !!o.weekNumbers, events: evMap });
   if (o.mini) {
@@ -745,10 +753,13 @@ PAGE_DRAW.weekVertical = (pen, box, o, ctx) => {
       fillLines(pen, { x: x + 1.5, y: y0, w: w - 3, h: h }, 7, 0.14, ctx.hair);
     }
   };
+  const markFn = typeof ctx.markOn === 'function' ? ctx.markOn : null;
   const dayHead = (x, w, dt) => {
     const col = wkCol(ctx, dt.getDay());
     pen.text(DOW3_PT[dt.getDay()].toUpperCase(), x + 1.6, top, { size: 6, font: 'bold', color: col, baseline: 'top' });
     pen.text(String(dt.getDate()), x + w - 1.6, top, { size: 7, color: ctx.faint, align: 'r', baseline: 'top' });
+    const nm = markFn && markFn(dt);
+    if (nm) { const t = pen.wrapText(nm, w - 3, 3.6, false, 1)[0]; pen.text(t, x + 1.6, top + 4.3, { size: 3.6, color: ctx.accent, baseline: 'top' }); }
   };
   for (let i = 0; i < 5; i++) {
     const x = box.x + i * cw;
@@ -827,7 +838,9 @@ PAGE_DRAW.daySchedule = (pen, box, o, ctx) => {
   const wide = box.w >= 100;
   heading(pen, DOW_PT[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS_PT[d.getMonth()].toLowerCase() + (wide ? '' : ' ' + pad2(d.getMonth() + 1) + '/' + d.getFullYear()), box.x, box.y, box.w * (wide ? 0.72 : 0.98), 13, 8, { color: ctx.ink });
   if (wide) pen.text(fmtDMY(d), box.x + box.w, box.y + 1.5, { size: 9, color: ctx.faint, align: 'r', baseline: 'top' });
-  const top = box.y + 9, side = o.side && box.w >= 115;
+  const dmark = typeof ctx.markOn === 'function' ? ctx.markOn(d) : null;
+  if (dmark) pen.text(dmark, box.x, box.y + 7, { size: 6, color: ctx.accent, baseline: 'top' });
+  const top = box.y + (dmark ? 12.5 : 9), side = o.side && box.w >= 115;
   const schedW = side ? box.w * 0.6 : box.w;
   pen.rect(box.x + 9, top, schedW - 9, box.y + box.h - top, { stroke: ctx.faint, w: 0.25 });
   hourColumn(pen, box.x + 9, top, schedW - 9, box.y + box.h - top, o, ctx, true);
@@ -851,8 +864,10 @@ PAGE_DRAW.daySimple = (pen, box, o, ctx) => {
   heading(pen, DOW_PT[d.getDay()] + (wide ? '' : ' ' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1)), box.x, box.y, box.w * (wide ? 0.62 : 0.98), 16, 10, { color: ctx.ink });
   if (wide) pen.text(fmtDMY(d), box.x + box.w, box.y + 2, { size: 10, color: ctx.faint, align: 'r', baseline: 'top' });
   pen.line(box.x, box.y + 9, box.x + box.w, box.y + 9, { w: 0.4, color: ctx.ink });
+  const dmark = typeof ctx.markOn === 'function' ? ctx.markOn(d) : null;
   const bottom = box.y + box.h;
   let y = box.y + 14;
+  if (dmark) { pen.text(dmark, box.x, y, { size: 6.5, color: ctx.accent, baseline: 'top' }); y += 6; }
   pen.text(ctx.L('principais'), box.x, y, { size: 7.5, font: 'bold', color: ctx.accent, baseline: 'top' }); y += 6;
   for (let k = 0; k < 3; k++) { cbox(pen, box.x, y + 5, 4, ctx.ink); pen.line(box.x + 7, y + 5, box.x + box.w, y + 5, { w: 0.2, color: ctx.hair }); y += 10; }
   y += 3;
@@ -984,4 +999,18 @@ PAGE_DRAW.contacts = (pen, box, o, ctx) => {
   }
 };
 
-function pageTypeHasDate(type) { return !!(PAGE_TYPES[type] && PAGE_TYPES[type].dated); }
+/* ---- página personalizada (construtor por blocos, vendor/core/blocks.js) ---- */
+PAGE_DRAW.custom = (pen, box, o, ctx) => {
+  const layout = (o.layout && Array.isArray(o.layout.blocks)) ? o.layout : null;
+  if (!layout || !layout.blocks.length) {
+    pen.text('Página personalizada — abra "Editar layout"', box.x + box.w / 2, box.y + box.h / 2,
+      { size: 8, color: ctx.hair, align: 'c', baseline: 'middle', family: ctx.hfam });
+    return;
+  }
+  if (typeof EPBlocks !== 'undefined') EPBlocks.drawLayout(pen, box, layout, ctx);
+};
+
+function pageTypeHasDate(type) {
+  return !!(PAGE_TYPES[type] && (PAGE_TYPES[type].dated ||
+    (type === 'custom')));
+}

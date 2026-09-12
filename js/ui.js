@@ -42,14 +42,32 @@ function syncDocControls() {
   set('#d_startDate', s.startDate);
   set('#d_week', s.weekStart);
   chk('#d_weekend', s.highlightWeekends);
+  set('#d_holUF', s.holUF);
+  chk('#d_holNacional', s.holNacional);
+  chk('#d_holFacultativo', s.holFacultativo);
+  chk('#d_holComemorativa', s.holComemorativa);
+  set('#d_events', s.events);
+  set('#d_bindGsm', s.bindPaperGsm);
+  set('#d_bindKind', s.bindPaperKind);
+  if (typeof updateBindHint === 'function') updateBindHint();
   rng('#d_lineW', s.lineWeight, Math.round(s.lineWeight * 100) + ' %');
   set('#d_ink', s.ink); set('#d_accent', s.accent); set('#d_paperbg', s.paperBg);
   set('#d_exportMode', s.exportMode);
   set('#d_sheet', s.sheet);
   set('#d_twoUpOrder', s.twoUpOrder);
   set('#d_headingFont', s.headingFont);
-  { const sr = $('#d_sheetRow'); if (sr) sr.hidden = (s.exportMode === 'real'); }
+  { const sr = $('#d_sheetRow'); if (sr) sr.hidden = (s.exportMode === 'real' || s.exportMode === 'auto'); }
   { const tr = $('#d_twoUpRow'); if (tr) tr.hidden = (s.exportMode !== '2up'); }
+  { const eh = $('#d_exportHint'); if (eh) {
+    const eff = effectiveExportMode();
+    const [W, H] = paperWH();
+    const now = eff.mode === 'fit'
+      ? `Como está agora: o miolo (${W.toFixed(0)}×${H.toFixed(0)} mm) sai centralizado numa folha ${({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4'} com <b>marcas de corte</b> — imprima e corte.`
+      : `Como está agora: o miolo sai no tamanho exato (${W.toFixed(0)}×${H.toFixed(0)} mm), sem marca de corte.`;
+    eh.innerHTML = s.exportMode === 'auto'
+      ? `<b>Automático</b>: se o papel escolhido cabe numa A4 mas não é uma A4 inteira (A5, A6, pocket…), centraliza numa A4 com marcas de corte; senão sai no tamanho exato. ${now} Imprima sempre em <b>100%</b>, margens <b>Nenhuma</b>.`
+      : '';
+  } }
   chk('#d_guide', s.showSafeGuide);
   set('#d_dpi', s.exportDPI);
   if (typeof buildLabelFields === 'function') buildLabelFields();
@@ -101,6 +119,21 @@ function bindDoc() {
   if ($('#d_startDate')) $('#d_startDate').onchange = e => commit('startDate', e.target.value.trim());
   $('#d_week').onchange = e => commit('weekStart', e.target.value);
   if ($('#d_weekend')) $('#d_weekend').onchange = e => commit('highlightWeekends', e.target.checked);
+  // datas especiais (feriados + eventos)
+  const ufSel = $('#d_holUF');
+  if (ufSel && typeof EPDates !== 'undefined') EPDates.UFS.forEach(uf => ufSel.add(new Option(uf, uf)));
+  if (ufSel) ufSel.onchange = e => commit('holUF', e.target.value);
+  ['holNacional', 'holFacultativo', 'holComemorativa'].forEach(k => {
+    const el = $('#d_' + k); if (el) el.onchange = e => commit(k, e.target.checked);
+  });
+  if ($('#d_events')) $('#d_events').oninput = e => {
+    const el = e.target;
+    state.settings.events = sanitizeText(el.value, 8000);
+    clearTimeout(el._t); el._t = setTimeout(() => { pushHistory('doc-events'); state.settings = migrate(state).settings; svgCache.clear(); render(); save(); }, 350);
+  };
+  // estimativa de anel wire-o / espiral
+  if ($('#d_bindGsm')) $('#d_bindGsm').onchange = e => { state.settings.bindPaperGsm = +e.target.value; state.settings = migrate(state).settings; save(); updateBindHint(); };
+  if ($('#d_bindKind')) $('#d_bindKind').onchange = e => { state.settings.bindPaperKind = e.target.value; state.settings = migrate(state).settings; save(); updateBindHint(); };
   if ($('#d_lineW')) {
     const lw = $('#d_lineW'), lwo = $('#v_lineW');
     const lwtxt = v => Math.round(parseFloat(v) * 100) + ' %';
@@ -111,7 +144,7 @@ function bindDoc() {
       rafDocRender();
     });
   }
-  const EXP_LABEL = { real: 'tamanho real (1 por folha)', fit: '1 por folha + marcas de corte', '2up': '2 por folha (cortar ao meio)', booklet: 'livreto — dobrar ao meio' };
+  const EXP_LABEL = { auto: 'automático — decide sozinho', real: 'tamanho real (1 por folha)', fit: '1 por folha + marcas de corte', '2up': '2 por folha (cortar ao meio)', booklet: 'livreto — dobrar ao meio' };
   if ($('#d_exportMode')) $('#d_exportMode').onchange = e => {
     state.settings.exportMode = e.target.value; state.settings = migrate(state).settings;
     syncDocControls(); save();
@@ -173,6 +206,22 @@ function bindDoc() {
       pbox.appendChild(bt);
     });
   }
+}
+
+/* estimativa de folhas físicas + anel wire-o / espiral (packages/core/binding.js) */
+function updateBindHint() {
+  const el = $('#d_bindHint'); if (!el) return;
+  const s = state.settings;
+  const n = (typeof pageCount === 'function') ? pageCount() : 0;
+  if (!n || typeof EPBinding === 'undefined') { el.textContent = ''; return; }
+  const e = EPBinding.estimate({ pages: n, gsm: s.bindPaperGsm, paperKind: s.bindPaperKind });
+  const bind = s.binding || 'none';
+  const parts = [`${n} pág. = ${e.sheets} folha(s) físicas`, `miolo ≈ ${e.thicknessMm.toFixed(1)} mm`];
+  if (bind === 'wireo') parts.push(`garra wire-o ≈ ${e.wireo.label} (${e.wireo.mm} mm, passo ${e.wireo.pitch})`);
+  else if (bind === 'spiral') parts.push(`espiral ≈ ${e.coil.mm} mm`);
+  else parts.push(`wire-o ≈ ${e.wireo.label} · espiral ≈ ${e.coil.mm} mm`);
+  if (bind === 'staple' && !e.multipleOf4) parts.push('livreto: use múltiplo de 4 páginas');
+  el.textContent = parts.join(' · ') + '. Estimativa — confira com o papel real.';
 }
 
 /* editor dos rótulos fixos das páginas ("Textos das páginas") */
@@ -388,15 +437,57 @@ function buildFields(sec, T) {
         (f.hint ? `<p class="hint">${esc(f.hint)}</p>` : '');
     } else if (f.type === 'image') {
       const has = typeof cur === 'string' && cur.slice(0, 5) === 'data:';
-      html = `<label>${esc(f.label)}<span class="img-fld">` +
-        `<button type="button" class="wfull" id="${id}_pick" data-i="imagedown">${has ? 'Trocar…' : 'Escolher imagem…'}</button>` +
-        (has ? `<img class="img-prev" id="${id}_prev" alt="prévia" src="${esc(cur)}"><button type="button" class="img-x danger" id="${id}_clr">Remover imagem</button>` : '') +
-        `</span></label>`;
+      const hasSrc = f.editAspect && typeof sec.opts[f.k + 'Src'] === 'string' && sec.opts[f.k + 'Src'].slice(0, 5) === 'data:';
+      if (f.editAspect && hasSrc) {
+        // editor embutido (packages/core/imgedit.js) — sem popup, igual ao
+        // painel do Polaroide Studio: arrasta/ajusta aqui mesmo, ao vivo.
+        html = `<label>${esc(f.label)}</label><span class="img-fld">` +
+          `<span class="img-btnrow"><button type="button" id="${id}_pick" data-i="imagedown">Trocar…</button>` +
+          `<button type="button" class="img-x danger" id="${id}_clr">Remover imagem</button></span>` +
+          `<div id="${id}_host"></div></span>`;
+      } else {
+        html = `<label>${esc(f.label)}<span class="img-fld">` +
+          (has ? `<img class="img-prev" id="${id}_prev" alt="prévia" src="${esc(cur)}">` : '') +
+          `<button type="button" class="wfull" id="${id}_pick" data-i="imagedown">${has ? 'Trocar…' : 'Escolher imagem…'}</button>` +
+          (has ? `<button type="button" class="img-x danger" id="${id}_clr">Remover imagem</button>` : '') +
+          `</span></label>`;
+      }
+    } else if (f.type === 'layout') {
+      html = `<div id="${id}_host" class="layout-fld"></div>`;
     }
     wrap.insertAdjacentHTML('beforeend', html);
-    if (f.type === 'image') { injectIcons(wrap); const pk = $('#' + id + '_pick'), cl = $('#' + id + '_clr');
-      if (pk) pk.onclick = () => pickImage(uri => { const s = curSection(); if (!s) return; s.opts[f.k] = uri; svgCache.clear(); render(); save(); fillRight(); });
-      if (cl) cl.onclick = () => { const s = curSection(); if (!s) return; delete s.opts[f.k]; svgCache.clear(); render(); save(); fillRight(); };
+    if (f.type === 'layout') {
+      if (typeof mountLayoutField === 'function') mountLayoutField($('#' + id + '_host'), sec);
+      return;
+    }
+    if (f.type === 'image') {
+      injectIcons(wrap);
+      const pk = $('#' + id + '_pick'), cl = $('#' + id + '_clr');
+      if (f.editAspect) {
+        const hasSrc = typeof sec.opts[f.k + 'Src'] === 'string' && sec.opts[f.k + 'Src'].slice(0, 5) === 'data:';
+        if (pk) pk.onclick = () => { const s = curSection(); if (!s) return;
+          pickNewImage({ keepEdit: s.opts[f.k + 'Edit'], cb: res => {
+            s.opts[f.k + 'Src'] = res.photoSrc; s.opts[f.k + 'Edit'] = res.photoEdit;
+            pushHistory('opt-' + f.k); svgCache.clear(); render(); save(); fillRight();
+          } }); };
+        if (cl) cl.onclick = () => { const s = curSection(); if (!s) return;
+          pushHistory('opt-' + f.k); delete s.opts[f.k]; delete s.opts[f.k + 'Src']; delete s.opts[f.k + 'Edit'];
+          svgCache.clear(); render(); save(); fillRight(); };
+        if (hasSrc) {
+          const host = $('#' + id + '_host');
+          const [W, H] = paperWH();
+          EPImgEdit.mount(host, {
+            key: sec.id + ':' + f.k, src: sec.opts[f.k + 'Src'], aspect: W / H, edit: sec.opts[f.k + 'Edit'],
+            onHistoryPoint: () => pushHistory('opt-' + f.k),
+            onCommit: res => { const s = curSection(); if (!s) return;
+              s.opts[f.k] = res.dataURL; s.opts[f.k + 'Edit'] = res.edit;
+              svgCache.clear(); render(); save(); },
+          });
+        }
+      } else {
+        if (pk) pk.onclick = () => pickImage(uri => { const s = curSection(); if (!s) return; s.opts[f.k] = uri; svgCache.clear(); render(); save(); fillRight(); });
+        if (cl) cl.onclick = () => { const s = curSection(); if (!s) return; delete s.opts[f.k]; svgCache.clear(); render(); save(); fillRight(); };
+      }
       return;
     }
     const el = $('#' + id);
@@ -513,7 +604,7 @@ function applyUI() {
 /* ================= bind da barra + menu ================= */
 function bindBar() {
   $('#rs_count').addEventListener('pointerdown', () => pushHistory('count'));
-  $('#rs_count').addEventListener('input', e => { const s = curSection(); if (s) { s.count = clamp(Math.round(+e.target.value), 1, 600); $('#rs_countv').textContent = s.count; rafRender(); save(); } });
+  $('#rs_count').addEventListener('input', e => { const s = curSection(); if (s) { s.count = clamp(Math.round(+e.target.value), 1, 2000); $('#rs_countv').textContent = s.count; rafRender(); save(); } });
   $('#rs_dup').onclick = () => { const s = curSection(); if (s) dupSection(s.id); };
   $('#rs_del').onclick = () => { const s = curSection(); if (s) removeSection(s.id); };
 
@@ -558,14 +649,142 @@ function bindBar() {
     const bl = $('#brandLink'); bl.href = ACERVO_URL; bl.target = '_blank';
     const ma = $('#m_acervo'); if (ma) { ma.href = ACERVO_URL; ma.target = '_blank'; ma.hidden = false; }
   }
+  if (typeof FEEDBACK_URL !== 'undefined' && FEEDBACK_URL) {
+    const mf = $('#m_feedback'); if (mf) { mf.href = FEEDBACK_URL; mf.target = '_blank'; mf.hidden = false; }
+  }
   // templates da tela inicial
   const tl = $('#tplList');
   if (tl) TEMPLATES.forEach(t => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'tpl-row';
-    b.innerHTML = `<b>${esc(t.name)}</b><i>${esc(t.desc)}</i>`;
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'tpl-card' + (t.id === 'branco' ? ' tpl-card--blank' : '');
+    b.innerHTML = `<span class="tpl-card__thumb">${tplThumbSVG(t)}</span>
+      <span class="tpl-card__name">${esc(t.name)}</span>
+      <span class="tpl-card__desc">${esc(t.desc)}</span>`;
     b.onclick = () => { newDoc(t); toast('Modelo: ' + t.name); };
     tl.appendChild(b);
   });
+}
+
+/* ============ miniaturas gráficas dos modelos (tela inicial) ============
+   Sem renderizar página real (custaria caro pra uma lista) — um SVG pequeno
+   e curado por modelo: uma "capa" colorida + um padrão que lembra o miolo
+   predominante (pontilhado, pautado, grade, semanal, calendário, hábitos…). */
+const TPL_VISUAL = {
+  bujo: { pat: 'dot', band: 'brand' },
+  semanal: { pat: 'week', band: 'brand' },
+  diario: { pat: 'calendar', band: 'brand' },
+  pautado: { pat: 'lined', band: 'brand' },
+  estudos: { pat: 'cornell', band: 'brand' },
+  refeicoes: { pat: 'checklist', band: 'gold' },
+  financeiro: { pat: 'table', band: 'brand' },
+  executiva: { pat: 'week', band: 'brand' },
+  'cinco-min': { pat: 'checklist', band: 'gold' },
+  habitos: { pat: 'habit', band: 'gold' },
+  projetos: { pat: 'checklist', band: 'brand' },
+  bemestar: { pat: 'habit', band: 'gold' },
+  leitura: { pat: 'lined', band: 'gold' },
+  patrimonio: { pat: 'table', band: 'brand' },
+  branco: { pat: 'blank', band: 'muted' },
+};
+
+function tplPatternSVG(pat, x, y, w, h) {
+  const lines = [];
+  const strokeThin = 'stroke="var(--line-2)" stroke-width="1.4"';
+  if (pat === 'dot') {
+    const gap = 8;
+    for (let yy = y + 6; yy < y + h - 2; yy += gap)
+      for (let xx = x + 6; xx < x + w - 2; xx += gap)
+        lines.push(`<circle cx="${xx}" cy="${yy}" r="1" fill="var(--faint)"/>`);
+  } else if (pat === 'lined') {
+    for (let yy = y + 8; yy < y + h - 2; yy += 9)
+      lines.push(`<line x1="${x + 4}" y1="${yy}" x2="${x + w - 4}" y2="${yy}" ${strokeThin}/>`);
+  } else if (pat === 'grid') {
+    for (let yy = y + 8; yy < y + h - 2; yy += 9)
+      lines.push(`<line x1="${x + 4}" y1="${yy}" x2="${x + w - 4}" y2="${yy}" ${strokeThin}/>`);
+    for (let xx = x + 4; xx < x + w - 2; xx += 9)
+      lines.push(`<line x1="${xx}" y1="${y + 4}" x2="${xx}" y2="${y + h - 2}" ${strokeThin}/>`);
+  } else if (pat === 'cornell') {
+    const cueW = w * 0.32, sumH = h * 0.24;
+    lines.push(`<line x1="${x + cueW}" y1="${y}" x2="${x + cueW}" y2="${y + h - sumH}" ${strokeThin}/>`);
+    lines.push(`<line x1="${x}" y1="${y + h - sumH}" x2="${x + w}" y2="${y + h - sumH}" ${strokeThin}/>`);
+    for (let yy = y + 9; yy < y + h - sumH - 2; yy += 9)
+      lines.push(`<line x1="${x + cueW + 4}" y1="${yy}" x2="${x + w - 4}" y2="${yy}" ${strokeThin}/>`);
+  } else if (pat === 'calendar') {
+    const cols = 4, rows = 3, gap = 3;
+    const cw = (w - gap * (cols - 1)) / cols, ch = (h - gap * (rows - 1)) / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+      lines.push(`<rect x="${x + c * (cw + gap)}" y="${y + r * (ch + gap)}" width="${cw}" height="${ch}" rx="1.5" fill="none" stroke="var(--line-2)" stroke-width="1.4"/>`);
+  } else if (pat === 'week') {
+    const rows = 5, gap = 4;
+    const rh = (h - gap * (rows - 1)) / rows;
+    for (let r = 0; r < rows; r++) {
+      const yy = y + r * (rh + gap);
+      lines.push(`<rect x="${x}" y="${yy}" width="${w}" height="${rh}" rx="1.5" fill="none" stroke="var(--line-2)" stroke-width="1.4"/>`);
+      lines.push(`<line x1="${x + w * 0.26}" y1="${yy}" x2="${x + w * 0.26}" y2="${yy + rh}" stroke="var(--line-2)" stroke-width="1.4"/>`);
+    }
+  } else if (pat === 'habit') {
+    const cols = 7, rows = 5, gap = 3.2;
+    const cw = (w - gap * (cols - 1)) / cols;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+      lines.push(`<circle cx="${x + c * (cw + gap) + cw / 2}" cy="${y + r * ((h - cw) / (rows - 1)) + cw / 2}" r="${cw / 2.3}" fill="none" stroke="var(--faint)" stroke-width="1.3"/>`);
+  } else if (pat === 'table') {
+    const rows = 6, gap = 3.5, colX = x + w * 0.62;
+    const rh = (h - gap * (rows - 1)) / rows;
+    for (let r = 0; r < rows; r++) {
+      const yy = y + r * (rh + gap);
+      lines.push(`<rect x="${x}" y="${yy}" width="${w}" height="${rh}" rx="1.2" fill="none" stroke="var(--line-2)" stroke-width="1.3"/>`);
+      lines.push(`<line x1="${colX}" y1="${yy}" x2="${colX}" y2="${yy + rh}" stroke="var(--line-2)" stroke-width="1.3"/>`);
+    }
+  } else if (pat === 'checklist') {
+    const rows = 7, gap = (h - 4) / rows;
+    for (let r = 0; r < rows; r++) {
+      const yy = y + 6 + r * gap;
+      lines.push(`<rect x="${x}" y="${yy - 3}" width="6" height="6" rx="1.3" fill="none" stroke="var(--faint)" stroke-width="1.3"/>`);
+      lines.push(`<line x1="${x + 11}" y1="${yy}" x2="${x + w - (r % 3 === 0 ? 14 : 4)}" y2="${yy}" ${strokeThin}/>`);
+    }
+  } else if (pat === 'blank') {
+    lines.push(`<line x1="${x + w / 2 - 9}" y1="${y + h / 2}" x2="${x + w / 2 + 9}" y2="${y + h / 2}" stroke="var(--faint)" stroke-width="2.4" stroke-linecap="round"/>`);
+    lines.push(`<line x1="${x + w / 2}" y1="${y + h / 2 - 9}" x2="${x + w / 2}" y2="${y + h / 2 + 9}" stroke="var(--faint)" stroke-width="2.4" stroke-linecap="round"/>`);
+  }
+  return lines.join('');
+}
+
+function tplThumbSVG(t) {
+  const v = TPL_VISUAL[t.id] || { pat: 'dot', band: 'brand' };
+  const paperId = (t.settings && t.settings.paper) || 'a5';
+  const ps = PAGE_SIZES[paperId] || PAGE_SIZES.a5;
+  const W = 100, H = Math.round(W * (ps.h / ps.w)), R = 7, bandH = v.pat === 'blank' ? 0 : 26;
+  const bind = t.binding && BINDINGS[t.binding];
+  const bindPad = (bind && bind.punch) ? 9 : 0;
+  const cid = 'tc-' + t.id;
+  const bandFill = v.band === 'gold' ? 'var(--gold)' : v.band === 'muted' ? 'var(--line)' : 'var(--brand)';
+  const titleColor = v.band === 'muted' ? 'var(--muted)' : '#fff';
+  let band = '';
+  if (bandH) {
+    band = `<rect x="${bindPad}" y="0" width="${W - bindPad}" height="${bandH}" fill="${bandFill}"/>
+      <rect x="${bindPad + 8}" y="${bandH / 2 - 5}" width="${Math.min(W - bindPad - 16, 34)}" height="3.2" rx="1.6" fill="${titleColor}" opacity=".92"/>
+      <rect x="${bindPad + 8}" y="${bandH / 2 + 1}" width="${Math.min(W - bindPad - 16, 20)}" height="2.4" rx="1.2" fill="${titleColor}" opacity=".55"/>`;
+  }
+  const pattern = tplPatternSVG(v.pat, bindPad + 8, bandH + 8, W - bindPad - 16, H - bandH - 16);
+  let bindMarks = '';
+  if (bindPad) {
+    const n = 6, gap = H / (n + 1);
+    for (let i = 1; i <= n; i++) bindMarks += `<circle cx="${(bindPad / 2).toFixed(1)}" cy="${(gap * i).toFixed(1)}" r="1.3" fill="#fff" stroke="rgba(0,0,0,.3)" stroke-width=".5"/>`;
+  } else if (t.binding === 'staple') {
+    bindMarks = `<path d="M2 ${H * 0.32}h4M2 ${H * 0.68}h4" stroke="rgba(0,0,0,.4)" stroke-width="1.6" stroke-linecap="round"/>`;
+  } else if (t.binding === 'perfect') {
+    bindMarks = `<rect x="0" y="0" width="3" height="${H}" fill="rgba(0,0,0,.12)"/>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true">
+    <defs><clipPath id="${cid}"><rect x="0" y="0" width="${W}" height="${H}" rx="${R}"/></clipPath></defs>
+    <g clip-path="url(#${cid})">
+      <rect x="0" y="0" width="${W}" height="${H}" fill="var(--surface)"/>
+      ${band}
+      ${pattern}
+      ${bindMarks}
+      <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="${R}" fill="none" stroke="var(--line)" stroke-width="1"/>
+    </g>
+  </svg>`;
 }
 
 /* ============ escolher imagem (logo/fundo) — 100% local ============
@@ -602,6 +821,56 @@ function pickImage(cb) {
       img.src = fr.result;
     };
     fr.readAsDataURL(file);
+  };
+  inp.click();
+}
+
+/* ============ imagem COM editor embutido (arrastar/zoom/girar/filtros) ============
+   Usado só pelos campos marcados `editAspect:true` (hoje: fundo da capa) —
+   um logo (fit:'meet', cabe inteiro) não faz sentido recortar, por isso
+   continua no pickImage() simples acima. Reprocessa igual (tira EXIF/GPS),
+   guarda a fonte saneada (pra poder reajustar depois sem perder qualidade
+   de novo) — o editor em si é montado direto no painel por
+   `EPImgEdit.mount()` (ver buildFields, ramo `image`+`editAspect`), sem
+   popup, igual ao painel do Polaroide Studio. */
+function readAndSanitizeImage(file, maxSide) {
+  return new Promise((resolve, reject) => {
+    if (file.size > 20 * 1024 * 1024) { reject(new Error('Imagem muito grande (máx. 20 MB).')); return; }
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('Não consegui ler o arquivo.'));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Arquivo de imagem inválido.'));
+      img.onload = () => {
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h) { reject(new Error('Imagem sem dimensões.')); return; }
+        const scale = Math.min(1, (maxSide || 1800) / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        let out;
+        try { out = cv.toDataURL('image/jpeg', 0.88); }
+        catch (e) { reject(new Error('Não consegui processar a imagem.')); return; }
+        if (out.length > 5.5e6) { try { out = cv.toDataURL('image/jpeg', 0.7); } catch (e) {} }
+        if (out.length > 6e6) { reject(new Error('Imagem grande demais mesmo otimizada — use uma menor.')); return; }
+        resolve(out);
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+// escolher um arquivo novo (ou trocar um existente) -> sanear ->
+// cb({photoSrc, photoEdit}). Quem monta o editor (e assa a 1ª prévia assim
+// que a imagem carrega) é o EPImgEdit.mount() no próprio buildFields().
+function pickNewImage(opts) {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/png,image/jpeg,image/webp,image/gif';
+  inp.onchange = () => {
+    const file = inp.files && inp.files[0]; if (!file) return;
+    readAndSanitizeImage(file).then(src => opts.cb({ photoSrc: src, photoEdit: opts.keepEdit || null }))
+      .catch(err => toast(err.message || 'Não consegui processar a imagem.'));
   };
   inp.click();
 }
@@ -765,11 +1034,34 @@ function bindGlobal() {
   if (typeof initInstall === 'function') initInstall();
   setupColorFields();
   load();
-  if (!state.sections.length) { /* deixa a tela inicial visível */ }
-  else selId = state.sections[0].id;
-  syncDocControls();
-  applyUI();
-  render();
-  fit();
-  injectIcons();
+  const hasSaved = state.sections.length > 0;
+  const alreadyAsked = (() => { try { return sessionStorage.getItem('plannerstudio-resumed') === '1'; } catch (e) { return false; } })();
+  if (hasSaved && !alreadyAsked) {
+    showResumeAsk();
+  } else {
+    finishInit();
+  }
+  function finishInit() {
+    if (state.sections.length) selId = state.sections[0].id;
+    syncDocControls();
+    applyUI();
+    render();
+    fit();
+    injectIcons();
+  }
+  function markAsked() { try { sessionStorage.setItem('plannerstudio-resumed', '1'); } catch (e) {} }
+  function showResumeAsk() {
+    const box = $('#resumeAsk'); if (!box) { finishInit(); return; }
+    const pageCount = expand().length;
+    $('#ra_desc').textContent = `Encontramos um documento salvo neste navegador — ${state.sections.length} seç${state.sections.length === 1 ? 'ão' : 'ões'}, ${pageCount} página${pageCount === 1 ? '' : 's'}.`;
+    box.hidden = false;
+    document.body.classList.add('onboarding');
+    $('#ra_continue').onclick = () => { markAsked(); box.hidden = true; document.body.classList.remove('onboarding'); finishInit(); };
+    $('#ra_new').onclick = () => {
+      if (!confirm('Começar um novo documento? O salvo continuará guardado até você editar algo.')) return;
+      markAsked(); box.hidden = true;
+      state = { settings: { ...DEFAULTS }, sections: [] };
+      finishInit();
+    };
+  }
 })();

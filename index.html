@@ -25,12 +25,13 @@
 <title>Planner Studio</title>
 <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-400-normal.woff2">
 <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-700-normal.woff2">
-<link rel="stylesheet" href="css/base.css?v=024">
-<link rel="stylesheet" href="css/layout.css?v=024">
-<link rel="stylesheet" href="css/studio.css?v=024">
-<link rel="stylesheet" href="css/util.css?v=024">
-<link rel="stylesheet" href="css/print.css?v=024">
-<link rel="stylesheet" href="css/mobile.css?v=024">
+<link rel="stylesheet" href="css/base.css?v=026">
+<link rel="stylesheet" href="css/layout.css?v=026">
+<link rel="stylesheet" href="css/studio.css?v=026">
+<link rel="stylesheet" href="css/util.css?v=026">
+<link rel="stylesheet" href="css/print.css?v=026">
+<link rel="stylesheet" href="css/mobile.css?v=026">
+<link rel="stylesheet" href="css/editor.css?v=026">
 </head>
 <body>
 <div id="app">
@@ -105,6 +106,17 @@
       <label>Encadernação <select id="d_binding"></select></label>
       <label class="row"><input type="checkbox" id="d_punch"> Mostrar guia de furos (só na tela)</label>
       <label class="row" id="d_printPunchRow" hidden><input type="checkbox" id="d_printPunch"> Imprimir os furos no PDF</label>
+      <div class="field-inline">
+        <label>Gramatura do miolo <select id="d_bindGsm">
+          <option value="63">63 g</option><option value="75">75 g</option><option value="90">90 g</option>
+          <option value="120">120 g</option><option value="150">150 g</option><option value="180">180 g</option>
+        </select></label>
+        <label>Tipo de papel <select id="d_bindKind">
+          <option value="offset">Offset</option><option value="polen">Pólen / avena</option>
+          <option value="couche">Couché</option><option value="reciclado">Reciclado</option>
+        </select></label>
+      </div>
+      <p class="hint" id="d_bindHint"></p>
     </div></details>
 
     <details><summary><span data-i="hash"></span> Numeração e corte <span class="caret" data-i="caret"></span></summary><div class="sect">
@@ -133,6 +145,17 @@
       <p class="hint">Meses, semanas e dias avançam a partir do <b>1º dia</b> (ou de 1º de janeiro do ano). Cada seção também pode ter data/mês próprios.</p>
     </div></details>
 
+    <details><summary><span data-i="star"></span> Datas especiais <span class="caret" data-i="caret"></span></summary><div class="sect">
+      <label class="row"><input type="checkbox" id="d_holNacional"> Marcar feriados nacionais</label>
+      <label class="row"><input type="checkbox" id="d_holFacultativo"> Marcar pontos facultativos (Carnaval, Corpus Christi…)</label>
+      <label class="row"><input type="checkbox" id="d_holComemorativa"> Marcar datas comemorativas (Dia das Mães, Black Friday…)</label>
+      <label>Feriados estaduais da UF
+        <select id="d_holUF"><option value="">Nenhuma</option></select></label>
+      <label>Eventos (um por linha: <b>AAAA-MM-DD Título</b> ou <b>DD/MM Título</b>)
+        <textarea id="d_events" rows="4" maxlength="8000" placeholder="2026-03-15 Prova&#10;20/09 Aniversário da loja"></textarea></label>
+      <p class="hint">As marcas aparecem no calendário mensal, na semana e no dia. Feriados móveis (Páscoa, Carnaval, Corpus Christi) são calculados no próprio aparelho. Nos blocos, use <b>{feriado}</b> e <b>{evento}</b>.</p>
+    </div></details>
+
     <details><summary><span data-i="palette"></span> Cores <span class="caret" data-i="caret"></span></summary><div class="sect">
       <div class="grp" id="d_palette"></div>
       <label>Tinta (linhas e textos) <input type="color" id="d_ink"></label>
@@ -157,6 +180,7 @@
     <details open id="d_exportWrap"><summary><span data-i="download"></span> Exportação e impressão <span class="caret" data-i="caret"></span></summary><div class="sect">
       <label>Montagem do PDF / impressão
         <select id="d_exportMode">
+          <option value="auto">Automático (recomendado) — pronto pra cortar</option>
           <option value="real">Tamanho real — 1 página por folha (gráfica)</option>
           <option value="fit">1 por folha + marcas de corte</option>
           <option value="2up">2 por folha — cortar ao meio</option>
@@ -175,21 +199,49 @@
         </select></label>
       <label>Resolução do PNG
         <select id="d_dpi"><option value="200">200 dpi</option><option value="300">300 dpi</option><option value="450">450 dpi</option><option value="600">600 dpi</option></select></label>
+      <p class="hint" id="d_exportHint"></p>
       <p class="hint"><b>Tamanho real</b>: a página sai no tamanho do miolo — para a gráfica. <b>1 por folha</b>: miolo centralizado numa folha comum com <b>marcas de corte</b>. <b>2 por folha</b>: duas páginas lado a lado (ex.: 2×A5 numa A4). Imprima <b>só frente</b>, corte na linha do meio e ponha a pilha da direita embaixo da esquerda — fica na ordem. <b>Livreto</b>: as páginas são reordenadas para você imprimir <b>frente e verso</b> (virar pela borda curta), empilhar e <b>dobrar ao meio</b> — vira um caderninho. Imprima sempre em <b>100%</b>, margens <b>Nenhuma</b>.</p>
     </div></details>
 
     <p class="hint" id="d_privadoNote"><span class="pill">Privado</span> &nbsp;O documento fica só neste navegador. Para backup use <b>Salvar projeto</b> no menu.
-      <a id="m_acervo" rel="noopener noreferrer" hidden>↗ Acervo — mais ferramentas</a></p>
+      <a id="m_acervo" rel="noopener noreferrer" hidden>↗ Acervo — mais ferramentas</a><br>
+      <a id="m_feedback" rel="noopener noreferrer" hidden>★ Avaliar esta ferramenta</a></p>
   </aside>
 
   <div id="stage">
     <div id="sheets"></div>
+    <div id="resumeAsk" hidden>
+      <div class="box">
+        <span class="mark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="8" width="44" height="48" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="3.5"/><path d="M22 20h20M22 28h20M22 36h13" stroke="var(--brand)" stroke-width="3.2" stroke-linecap="round"/></svg></span>
+        <h3>Bem-vindo de volta</h3>
+        <p id="ra_desc">Encontramos um documento salvo neste navegador.</p>
+        <div class="ra-actions">
+          <button id="ra_continue" class="primary jcc" data-i="check">Continuar de onde parei</button>
+          <button id="ra_new" class="jcc">Começar um novo documento</button>
+        </div>
+        <p class="faint">Nada é enviado a nenhum servidor. O documento fica só neste navegador.</p>
+      </div>
+    </div>
     <div id="empty" hidden>
       <div class="box scrl">
         <span class="mark"><svg viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="8" width="44" height="48" rx="5" fill="var(--surface)" stroke="var(--brand)" stroke-width="3.5"/><path d="M22 20h20M22 28h20M22 36h13" stroke="var(--brand)" stroke-width="3.2" stroke-linecap="round"/></svg></span>
         <h3>Planner Studio</h3>
         <p>Monte o miolo de um caderno, planner ou agenda e baixe o PDF pronto para impressão. Comece por um modelo:</p>
-        <div id="tplList" class="tpl-list"></div>
+        <div id="ob_templates">
+          <div id="tplList" class="tpl-list"></div>
+          <button id="ob_wizStart" class="wiz-start">Ou montar do seu jeito, passo a passo →</button>
+        </div>
+        <div id="ob_wizard" hidden>
+          <div class="wiz-head">
+            <button id="ob_wizBack" class="wiz-back" data-i="chevleft" title="Voltar" aria-label="Voltar"></button>
+            <div class="wiz-headtxt">
+              <span class="wiz-step" id="ob_wizStep"></span>
+              <h4 id="ob_wizTitle"></h4>
+              <p id="ob_wizDesc"></p>
+            </div>
+          </div>
+          <div id="ob_wizGrid" class="tpl-list"></div>
+        </div>
         <button id="e_add" class="primary jcc" data-i="plus">Ou adicionar uma seção do zero</button>
         <p class="faint">Nada é enviado a nenhum servidor. Funciona offline.</p>
       </div>
@@ -211,7 +263,7 @@
       <div class="aside-title"><span data-i="sliders"></span> <span id="rs_title">Seção</span></div>
       <p class="rs-group" id="rs_group"></p>
       <label id="rs_countRow">Quantidade de páginas <span class="v" id="rs_countv"></span>
-        <input type="range" id="rs_count" min="1" max="400" step="1"></label>
+        <input type="range" id="rs_count" min="1" max="1000" step="1"></label>
       <div id="rs_fields"></div>
       <div class="btnrow mt10">
         <button id="rs_dup" data-i="copy">Duplicar seção</button>
@@ -325,14 +377,20 @@
   </div>
 </dialog>
 
-<script defer src="js/config.js?v=024"></script>
-<script defer src="js/pen.js?v=024"></script>
-<script defer src="js/pages.js?v=024"></script>
-<script defer src="js/engine.js?v=024"></script>
-<script defer src="js/fonts.js?v=024"></script>
-<script defer src="js/io.js?v=024"></script>
-<script defer src="js/mobile.js?v=024"></script>
-<script defer src="js/install.js?v=024"></script>
-<script defer src="js/ui.js?v=024"></script>
+<script defer src="vendor/core/dates.js?v=026"></script>
+<script defer src="vendor/core/blocks.js?v=026"></script>
+<script defer src="vendor/core/binding.js?v=026"></script>
+<script defer src="vendor/core/imgedit.js?v=026"></script>
+<script defer src="js/config.js?v=026"></script>
+<script defer src="js/pen.js?v=026"></script>
+<script defer src="js/pages.js?v=026"></script>
+<script defer src="js/engine.js?v=026"></script>
+<script defer src="js/fonts.js?v=026"></script>
+<script defer src="js/io.js?v=026"></script>
+<script defer src="js/mobile.js?v=026"></script>
+<script defer src="js/install.js?v=026"></script>
+<script defer src="js/ui.js?v=026"></script>
+<script defer src="js/editor.js?v=026"></script>
+<script defer src="js/wizard.js?v=026"></script>
 </body>
 </html>

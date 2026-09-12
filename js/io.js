@@ -15,7 +15,8 @@ function outSheet(id) { return OUT_SHEETS[id] || OUT_SHEETS.a4; }
 
 function impositionPlan(nPages) {
   const s = state.settings, [W, H] = paperWH();
-  const mode = ['real', 'fit', '2up', 'booklet'].includes(s.exportMode) ? s.exportMode : 'real';
+  const eff = effectiveExportMode();
+  const mode = ['real', 'fit', '2up', 'booklet'].includes(eff.mode) ? eff.mode : 'real';
 
   if (mode === 'real') {
     const bleed = Math.max(0, s.bleedMm || 0);
@@ -26,7 +27,7 @@ function impositionPlan(nPages) {
     return { mode, paper: true, bleed, sheetW: W + 2 * bleed, sheetH: H + 2 * bleed, sheets };
   }
 
-  const B = outSheet(s.sheet);
+  const B = outSheet(eff.sheet);
 
   if (mode === 'fit') {
     let sw = B[0], sh = B[1];
@@ -85,13 +86,16 @@ function impositionPlan(nPages) {
 }
 
 function sheetFileTag(s) {
-  if (s.exportMode === 'real' || !s.exportMode) return '';
-  const sh = ({ a4: 'A4', letter: 'Carta', a3: 'A3' })[s.sheet] || 'A4';
-  return '-' + sh + ({ fit: '', '2up': '-2up', booklet: '-livreto' }[s.exportMode] || '');
+  const eff = effectiveExportMode();
+  if (eff.mode === 'real') return '';
+  const sh = ({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4';
+  return '-' + sh + ({ fit: '', '2up': '-2up', booklet: '-livreto' }[eff.mode] || '');
 }
 function modeLabel(s) {
-  return ({ real: 'tamanho real', fit: 'uma página por folha + corte',
-    '2up': 'duas por folha (cortar ao meio)', booklet: 'livreto — dobrar ao meio' })[s.exportMode] || 'tamanho real';
+  const eff = effectiveExportMode();
+  const base = ({ real: 'tamanho real', fit: 'uma página por folha + corte',
+    '2up': 'duas por folha (cortar ao meio)', booklet: 'livreto — dobrar ao meio' })[eff.mode] || 'tamanho real';
+  return eff.auto ? base + ' (automático)' : base;
 }
 // marcas em L nos 4 cantos de um retângulo (fora dele), ou ticks internos se
 // não houver folga, + linha de dobra/corte.

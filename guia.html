@@ -9,7 +9,7 @@
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="assets/favicon.svg">
 <title>Guia do usuário — Planner Studio</title>
-<link rel="stylesheet" href="css/guia.css?v=2">
+<link rel="stylesheet" href="css/guia.css?v=3">
 </head>
 <body>
 <header class="top">
@@ -28,13 +28,14 @@
       <a href="#comecar">2. Começar por um modelo</a>
       <a href="#secoes">3. Seções — o coração do miolo</a>
       <a href="#tipos">4. Tipos de página</a>
-      <a href="#editar">5. Escrever e editar textos</a>
-      <a href="#documento">6. Papel, margens e encadernação</a>
-      <a href="#datas">7. Datas automáticas</a>
-      <a href="#cores">8. Cores, fonte e numeração</a>
-      <a href="#exportar">9. Exportar e imprimir</a>
-      <a href="#projeto">10. Salvar o projeto</a>
-      <a href="#faq">11. Perguntas frequentes</a>
+      <a href="#blocos">5. Página personalizada (blocos)</a>
+      <a href="#editar">6. Escrever e editar textos</a>
+      <a href="#documento">7. Papel, margens e encadernação</a>
+      <a href="#datas">8. Datas automáticas e datas especiais</a>
+      <a href="#cores">9. Cores, fonte e numeração</a>
+      <a href="#exportar">10. Exportar e imprimir</a>
+      <a href="#projeto">11. Salvar o projeto</a>
+      <a href="#faq">12. Perguntas frequentes</a>
     </details>
   </nav>
 
@@ -76,7 +77,20 @@
       </figure>
     </section>
 
-    <section id="editar"><h2>5. Escrever e editar textos</h2>
+    <section id="blocos"><h2>5. Página personalizada (blocos)</h2>
+      <p>Quando nenhum tipo pronto serve, use <b>Adicionar seção → Meus blocos → Página personalizada</b> e monte o layout do zero. No painel da seção, clique em <b>Montar o layout</b> para abrir o editor de tela cheia.</p>
+      <ul>
+        <li><b>Adicionar blocos:</b> o botão <b>Bloco</b> na barra oferece texto, título, linhas pautadas, pontilhado, quadriculado, caixa (com cantos arredondados), tabela (linhas × colunas com cabeçalho), checklist, grade de horários, mini calendário, círculos de hábito, imagem/ornamento e divisor.</li>
+        <li><b>Posicionar:</b> arraste o bloco pelo corpo; use as <b>3 alças</b> (direita, base, canto) para redimensionar. Tudo encaixa na <b>grade em mm</b> (ajuste o passo na barra). As <b>setas</b> do teclado movem; <b>Shift</b>+setas ajustam fino; <b>Del</b> remove; <b>Ctrl</b>+<b>D</b> duplica.</li>
+        <li><b>Propriedades:</b> o painel da direita mostra os controles do bloco selecionado (tamanho, cor, espessura, fonte, alinhamento…) e os campos <b>X/Y/L/A</b> em mm para posição exata. <b>Frente/Trás</b> muda a ordem de sobreposição.</li>
+        <li><b>Variáveis dinâmicas</b> nos blocos de texto: <code>{dia}</code>, <code>{dia_semana}</code>, <code>{mes}</code>, <code>{ano}</code>, <code>{semana_numero}</code>, <code>{dia_do_ano}</code>, <code>{dias_restantes}</code>, <code>{pagina}</code>, <code>{secao}</code>, <code>{nome_dono}</code>, <code>{feriado}</code>, <code>{evento}</code> e <code>{campo:chave}</code> (campos personalizados da seção). O botão <b>{ }</b> ao lado de cada campo de texto insere a variável.</li>
+        <li><b>Datas por página:</b> nas opções da seção, escolha <b>1 dia / 1 semana / 1 mês por página</b> — as variáveis passam a mudar a cada página. Defina o começo em <b>Começar em (AAAA-MM-DD)</b> ou pelo <b>Mês</b>.</li>
+        <li><b>Meus modelos:</b> <b>Salvar atual…</b> guarda o layout com um nome neste navegador; <b>Usar este</b> aplica um modelo salvo a qualquer seção personalizada; <b>Exportar</b> / <b>Importar .json</b> levam o modelo para outro aparelho (o arquivo passa pela mesma validação de segurança).</li>
+      </ul>
+      <p class="note">O layout é desenhado <b>vetor por vetor</b>, igual aos tipos prontos — sai nítido no PDF e obedece às margens do documento.</p>
+    </section>
+
+    <section id="editar"><h2>6. Escrever e editar textos</h2>
       <p>Além de gerar linhas em branco, o Planner Studio deixa você <b>preencher o conteúdo</b> antes de imprimir:</p>
       <ul>
         <li><b>Direto na página:</b> um clique (ou toque) numa página seleciona a seção dela; <b>clicar/tocar de novo</b> abre um editor de texto ali mesmo, com os campos daquele tipo. No celular o editor sobe como uma folha na base da tela.</li>
@@ -89,42 +103,53 @@
         <img src="assets/guia/04-editar.png" alt="Editor de texto aberto sobre uma página do miolo, com os campos daquele tipo ao lado" loading="lazy" width="1760" height="1100">
         <figcaption>Dois cliques numa página abrem o editor ali mesmo; os mesmos campos ficam no painel direito.</figcaption>
       </figure>
-      <p><b>Capa.</b> A seção <b>Capa</b> tem 9 estilos (moldura, faixa, editorial, cantoneiras, minimalista…), posição do título, monograma e <b>logo / imagem de fundo</b>: escolha um arquivo do seu computador — ele é reduzido e redesenhado internamente (removendo EXIF/GPS) e fica só neste navegador. O logo tem tamanho e posição ajustáveis; o fundo tem um controle para clarear e manter o texto legível. Tudo sai embutido no PDF.</p>
+      <p><b>Capa.</b> A seção <b>Capa</b> tem 9 estilos (moldura, faixa, editorial, cantoneiras, minimalista…), posição do título, monograma e <b>logo / imagem de fundo</b>: escolha um arquivo do seu computador — ele é reduzido e redesenhado internamente (removendo EXIF/GPS) e fica só neste navegador. O logo tem tamanho e posição ajustáveis (entra inteiro, sem recorte). A <b>imagem de fundo</b> abre um <b>editor</b> — arraste pra posicionar, dê zoom, gire, espelhe e ajuste brilho/contraste/saturação/sépia/preto-e-branco antes de aplicar; o botão <b>Reenquadrar</b> reabre o mesmo ajuste depois, sem perder qualidade. Um controle à parte clareia o fundo pra manter o texto legível. Tudo sai embutido no PDF.</p>
       <figure>
         <img src="assets/guia/05-capa.png" alt="Capa de planner com logo circular próprio, título numa faixa e nome do dono" loading="lazy" width="920" height="1302">
         <figcaption>Uma capa com logo próprio. A imagem é reduzida e redesenhada no navegador antes de entrar no PDF.</figcaption>
       </figure>
     </section>
 
-    <section id="documento"><h2>6. Papel, margens e encadernação</h2>
+    <section id="documento"><h2>7. Papel, margens e encadernação</h2>
       <p>No painel esquerdo, em <b>Documento</b>:</p>
       <ul>
         <li><b>Papel:</b> A3, A4, A5, A5 largo, A6, A7, B5, B6, Carta, Meia carta, Pocket, Traveler's, Weeks, quadrado ou medidas próprias.</li>
         <li><b>Começar em página à direita:</b> nas opções de cada seção — insere uma folha em branco se preciso, para a seção abrir sempre numa página ímpar (frente).</li>
         <li><b>Margens:</b> superior, inferior, interna (lombada) e externa. Os atalhos <b>Mínimas / Padrão / Confortável / Encadernação</b> preenchem as quatro de uma vez. Ligue <b>Espelhar margens</b> para impressão frente e verso — a margem da lombada troca de lado nas páginas pares. As linhas de pontilhado, quadriculado e pauta ficam <b>centralizadas na área útil</b> e nunca saem cortadas na borda, em qualquer margem.</li>
         <li><b>Encadernação:</b> por padrão vem <b>sem furos</b> — o miolo carrega limpo. Ao escolher espiral, wire-o, discos ou fichário, a margem interna aumenta e aparece a <b>guia de furos</b> na tela; para marcar os furos no PDF, ligue a opção correspondente.</li>
+        <li><b>Estimativa de anel:</b> informe a <b>gramatura</b> e o <b>tipo de papel</b> do miolo — a linha de dica calcula quantas <b>folhas físicas</b> o documento tem, a <b>espessura</b> aproximada do miolo e sugere o <b>diâmetro do anel wire-o</b> (com o passo 3:1 ou 2:1) ou da <b>espiral</b>. É uma estimativa; confirme com o papel real antes de comprar.</li>
         <li><b>Espessura das linhas:</b> em <b>Cores</b>, ajuste de 50% a 200% a força de todos os traços do miolo.</li>
       </ul>
     </section>
 
-    <section id="datas"><h2>7. Datas automáticas</h2>
+    <section id="datas"><h2>8. Datas automáticas e datas especiais</h2>
       <p>Defina o <b>Ano da agenda</b> e se a <b>semana começa</b> na segunda ou no domingo. Para uma agenda que não começa em 1º de janeiro (ano letivo, meio do ano), preencha o <b>1º dia da agenda (AAAA-MM-DD)</b> — todas as seções de mês, semana e dia passam a contar a partir dessa data. As seções <b>avançam sozinhas</b>: uma seção "Mês ×12" vira janeiro…dezembro; "Semana ×52" cobre o ano; "Dia ×30" são 30 dias seguidos. A contagem segue a ordem das seções. Para fixar o começo de uma seção específica, preencha <b>Começar em (AAAA-MM-DD)</b> ou escolha o <b>Mês</b> nas opções dela. O <b>destaque de fins de semana</b> pode ser desligado.</p>
       <p><b>Data automática:</b> nas páginas simples (pautada, pontilhada, quadriculada, em branco, tarefas) ligue <b>Data automática</b> — cada página ganha uma data no alto (1 dia por página) e o resto fica livre para escrever à mão.</p>
+      <h3>Datas especiais</h3>
+      <p>No painel <b>Datas especiais</b> você liga, separadamente:</p>
+      <ul>
+        <li><b>Feriados nacionais</b> — inclui os móveis (Sexta-feira Santa, Páscoa e, se marcar os facultativos, Carnaval e Corpus Christi), calculados no próprio aparelho.</li>
+        <li><b>Pontos facultativos</b> e <b>datas comemorativas</b> (Dia das Mães, Dia dos Pais, Namorados, Dia do Cliente, Black Friday…).</li>
+        <li><b>Feriados estaduais</b> de uma <b>UF</b> (ex.: 20 de setembro no RS).</li>
+        <li><b>Eventos seus</b> — cole uma linha por evento: <code>2026-03-15 Prova</code> (data fixa) ou <code>15/03 Aniversário</code> (repete todo ano).</li>
+      </ul>
+      <p>As marcas aparecem no <b>mês · calendário</b>, na <b>semana vertical</b> e no <b>dia</b>. Nas <b>páginas por blocos</b>, use <code>{feriado}</code> e <code>{evento}</code> em um bloco de texto, e o <b>mini calendário</b> destaca os dias marcados.</p>
     </section>
 
-    <section id="cores"><h2>8. Cores, fonte e numeração</h2>
+    <section id="cores"><h2>9. Cores, fonte e numeração</h2>
       <p><b>Paletas:</b> os botões no topo de <b>Cores</b> aplicam um conjunto pronto de tinta + destaque + fundo (Esmeralda, Grafite, Marinho, Ameixa, Floresta, Sépia, Preto e branco). Depois dá para ajustar cada cor à mão. <b>Tinta</b> é a cor de linhas e textos; <b>Destaque</b> pinta fins de semana e títulos. Cada seção pode sobrepor a tinta.</p>
       <p><b>Fonte dos títulos</b> (em <b>Textos das páginas</b>): sem serifa (padrão), com serifa (elegante) ou monoespaçada. Muda só os títulos; o corpo continua igual.</p>
       <p><b>Número de página:</b> canto externo, interno, centralizado ou nenhum. Você escolhe em que número começa a contar e quantas páginas iniciais pular (capa, índice), se mostra o <b>total</b> (12 / 208) e um <b>prefixo</b> opcional (“pág.”). O <b>Rodapé em todas as páginas</b> imprime um texto fixo discreto no pé de cada página; cada seção pode ter um <b>rodapé próprio</b> que substitui o global.</p>
     </section>
 
-    <section id="exportar"><h2>9. Exportar e imprimir</h2>
-      <p>Em <b>Exportação e impressão</b> escolha a <b>Montagem</b> e a <b>Folha</b>. A montagem vale tanto para o PDF quanto para o botão Imprimir.</p>
+    <section id="exportar"><h2>10. Exportar e imprimir</h2>
+      <p>Por padrão a montagem é <b>Automático</b>: clicar em <b>PDF</b> (ou <b>Imprimir</b>) já basta — se o papel escolhido (A5, A6, pocket…) cabe numa folha A4 mas não é uma A4 inteira, o arquivo sai centralizado numa A4 com <b>marcas de corte</b>, pronto pra imprimir em casa e cortar; se já é uma A4 (ou maior, como A3), sai no tamanho exato, sem precisar cortar. Não precisa mexer em nada. Em <b>Exportação e impressão</b> dá pra trocar pra um modo manual se precisar — a montagem vale tanto para o PDF quanto para o botão Imprimir:</p>
       <figure>
         <img src="assets/guia/06-exportar.png" alt="Painel Exportação e impressão com o seletor de montagem do PDF" loading="lazy" width="594" height="832">
-        <figcaption>O seletor de montagem: tamanho real, 1 por folha com marcas de corte, 2 por folha ou livreto.</figcaption>
+        <figcaption>O seletor de montagem: automático, tamanho real, 1 por folha com marcas de corte, 2 por folha ou livreto.</figcaption>
       </figure>
       <ul>
+        <li><b>Automático (padrão):</b> decide sozinho entre tamanho real e 1 por folha + corte, conforme o papel escolhido.</li>
         <li><b>Tamanho real (para gráfica):</b> cada página do PDF sai exatamente no tamanho do miolo (mais a sangria, se houver). A gráfica imprime e refila. Uma página por folha.</li>
         <li><b>1 por folha + marcas de corte:</b> o miolo vem centralizado na folha escolhida (A4, Carta ou A3), com <b>marcas de corte</b> nos quatro cantos. Imprima <b>em 100%</b> e recorte pelas marcas.</li>
         <li><b>2 por folha (cortar ao meio):</b> duas páginas do miolo lado a lado — ex.: <b>2 A5 numa folha A4</b>. Há duas ordens: <b>Cortar e empilhar</b> (imprime só a frente, corta na linha do meio e põe a pilha da direita embaixo da esquerda — fica 1…N sem intercalar) ou <b>Sequencial</b> (cada folha traz duas páginas seguidas). Quando as duas páginas preenchem a folha, sai só a linha central de corte.</li>
@@ -137,14 +162,14 @@
       </ul>
     </section>
 
-    <section id="projeto"><h2>10. Salvar o projeto</h2>
+    <section id="projeto"><h2>11. Salvar o projeto</h2>
       <p>O documento fica guardado neste navegador automaticamente. Para backup ou para abrir em outro computador, use <b>Menu ⋯ → Salvar projeto (.json)</b> e depois <b>Abrir projeto…</b>.</p>
     </section>
 
-    <section id="faq"><h2>11. Perguntas frequentes</h2>
+    <section id="faq"><h2>12. Perguntas frequentes</h2>
       <p><b>O PDF sai com borda branca ao imprimir em casa.</b> No diálogo de impressão do sistema escolha “Margens: Nenhuma” e “Escala: 100%”. Impressoras domésticas não imprimem até a borda — deixe uma margem de segurança de ~5 mm.</p>
       <p><b>Posso mudar o tamanho depois?</b> Sim, a qualquer momento — todas as páginas se recalculam.</p>
-      <p><b>Quantas páginas cabem?</b> Até 600 por seção. Documentos muito grandes deixam a pré-visualização mais lenta, mas o PDF sai normalmente.</p>
+      <p><b>Quantas páginas cabem?</b> Até 2000 por seção (uma agenda diária de 2 páginas por dia cabe inteira). Documentos muito grandes deixam a pré-visualização mais lenta, mas o PDF sai normalmente.</p>
       <p><b>É seguro?</b> Sim. O programa não tem permissão de rede (Content-Security-Policy <code>default-src 'none'</code>). Nada sai do aparelho.</p>
     </section>
 

@@ -1,0 +1,120 @@
+/* Planner Studio — css/editor.css
+   Campo "Layout" no painel da seção + editor de blocos em tela cheia.
+   Usa os tokens de base.css; segue o tema claro/escuro automaticamente.
+   Sem estilos inline (a CSP proíbe) — tudo aqui. */
+
+/* ---------- campo "Layout" no painel direito ---------- */
+.layout-fld { margin: 8px 0 2px; }
+.lf-wrap { display: flex; flex-direction: column; gap: 8px; }
+.lf-preview {
+  border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface);
+  padding: 6px; max-height: 190px; overflow: hidden; display: flex; justify-content: center;
+}
+.lf-preview svg { max-height: 176px; width: auto; height: auto; }
+.lf-models { border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px; background: var(--surface-2); display: flex; flex-direction: column; gap: 6px; }
+.lf-models label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+.lf-mrow { display: flex; gap: 6px; flex-wrap: wrap; }
+.lf-mrow button { flex: 1 1 auto; font-size: 12px; padding: 6px 8px; }
+
+/* ---------- editor de tela cheia ---------- */
+body.be-open { overflow: hidden; }
+/* menus/popovers do app (Adicionar bloco, variáveis) precisam ficar ACIMA do editor */
+body.be-open .popmenu, body.be-open .cfpop, body.be-open .m-scrim { z-index: 4300; }
+body.be-open #toast { z-index: 4400; }
+#blockEditor {
+  position: fixed; inset: 0; z-index: 4000;
+  background: var(--stage); display: flex; flex-direction: column;
+  font: 13px/1.45 var(--ui); color: var(--ink);
+}
+.be-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; background: var(--paper); border-bottom: 1px solid var(--line);
+  box-shadow: var(--sh-1);
+}
+.be-bar button {
+  font: inherit; padding: 7px 12px; border-radius: var(--r-sm); cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.be-bar button:hover { border-color: var(--brand-ring); }
+.be-bar button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.be-bar button.ghost { background: transparent; }
+.be-bar button.iconbtn { padding: 7px; }
+.be-bar button svg { width: 16px; height: 16px; }
+.be-bar button:disabled { opacity: .4; cursor: default; }
+.be-bar .be-grid { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.be-bar select { font: inherit; padding: 5px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.be-sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
+.be-grow { flex: 1; }
+.be-hint { font-size: 12px; color: var(--faint); }
+
+.be-body { flex: 1; display: flex; min-height: 0; }
+.be-canvas { flex: 1; overflow: auto; display: flex; align-items: flex-start; justify-content: center; padding: 24px; }
+.be-page {
+  position: relative; background: var(--surface); box-shadow: var(--sh-2);
+  outline: 1px solid var(--line); flex: none;
+}
+.be-bg { position: absolute; inset: 0; }
+.be-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.be-layer { position: absolute; inset: 0; }
+
+.be-block {
+  position: absolute; border: 1px dashed transparent; cursor: move;
+  touch-action: none;
+}
+.be-block:hover { border-color: var(--brand-ring); background: var(--brand-soft); }
+.be-block.sel { border: 1.5px solid var(--brand); background: rgba(61,92,82,.06); }
+.be-tag {
+  position: absolute; top: -16px; left: 0; font-size: 10px; line-height: 1;
+  background: var(--brand); color: #fff; padding: 2px 5px; border-radius: 4px 4px 4px 0;
+  white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .12s;
+}
+.be-block:hover .be-tag, .be-block.sel .be-tag { opacity: 1; }
+.be-h {
+  position: absolute; width: 14px; height: 14px; background: var(--brand); border: 2px solid #fff;
+  border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+}
+.be-h-e { right: -7px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.be-h-s { bottom: -7px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.be-h-se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+
+.be-props {
+  width: 288px; flex: none; background: var(--paper); border-left: 1px solid var(--line);
+  overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 9px;
+}
+.be-props label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; gap: 3px; }
+.be-props label.row { flex-direction: row; align-items: center; gap: 7px; color: var(--ink); }
+.be-props input[type=text], .be-props input[type=number], .be-props select, .be-props textarea {
+  font: inherit; padding: 6px 7px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); width: 100%;
+}
+.be-props input[type=range] { width: 100%; }
+.be-props .v { color: var(--ink); font-weight: 700; }
+.be-ph { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.be-ph b { font-size: 13.5px; color: var(--ink); }
+.be-pa { display: flex; gap: 3px; }
+.be-pa button { padding: 5px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; cursor: pointer; color: var(--ink); }
+.be-pa button.danger { color: var(--danger); }
+.be-pa svg { width: 14px; height: 14px; }
+.be-xy { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.be-xy label { font-size: 11px; }
+.be-txt { position: relative; display: block; }
+.be-txt textarea, .be-txt input { padding-right: 30px; }
+.be-var {
+  position: absolute; right: 4px; top: 4px; width: 22px; height: 22px; padding: 0;
+  border: 1px solid var(--line); border-radius: 5px; background: var(--surface-2); cursor: pointer;
+  font-size: 11px; color: var(--muted);
+}
+.be-cf { display: flex; gap: 6px; align-items: center; }
+.be-cf select { flex: 1; }
+.be-cf input[type=color] { width: 34px; height: 30px; padding: 0; border-radius: 6px; border: 1px solid var(--line); background: none; }
+.be-empty { color: var(--muted); }
+.be-empty b { color: var(--ink); display: block; margin-bottom: 4px; }
+.be-empty kbd { font: 11px var(--ui); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 4px; }
+
+@media (max-width: 760px) {
+  .be-body { flex-direction: column; }
+  .be-props { width: auto; border-left: 0; border-top: 1px solid var(--line); max-height: 44vh; }
+  .be-h { width: 20px; height: 20px; }
+  .be-canvas { padding: 12px; }
+}

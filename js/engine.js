@@ -49,10 +49,19 @@ function migrate(st) {
   s.startDate = parseYMD(s.startDate) ? String(s.startDate).trim() : '';
   s.weekStart = s.weekStart === 'sun' ? 'sun' : 'mon';
   s.footerText = sanitizeText(s.footerText, 80);
+  // datas especiais (feriados + eventos)
+  s.holUF = (typeof EPDates !== 'undefined' && EPDates.UFS.includes(String(s.holUF || '').toUpperCase()))
+    ? String(s.holUF).toUpperCase() : '';
+  s.holNacional = s.holNacional !== false;
+  s.holFacultativo = !!s.holFacultativo;
+  s.holComemorativa = !!s.holComemorativa;
+  s.events = sanitizeText(s.events, 8000);
+  s.bindPaperGsm = clamp(Math.round(num(s.bindPaperGsm, 75)), 40, 400);
+  s.bindPaperKind = ['offset', 'polen', 'couche', 'reciclado'].includes(s.bindPaperKind) ? s.bindPaperKind : 'offset';
   // compat: modos antigos 'a4'/'letter' viram 'fit' + folha correspondente
   if (s.exportMode === 'a4') { s.exportMode = 'fit'; if (!s.sheet) s.sheet = 'a4'; }
   else if (s.exportMode === 'letter') { s.exportMode = 'fit'; if (!s.sheet) s.sheet = 'letter'; }
-  s.exportMode = ['real', 'fit', '2up', 'booklet'].includes(s.exportMode) ? s.exportMode : 'real';
+  s.exportMode = ['auto', 'real', 'fit', '2up', 'booklet'].includes(s.exportMode) ? s.exportMode : 'real';
   s.sheet = ['a4', 'letter', 'a3'].includes(s.sheet) ? s.sheet : 'a4';
   s.twoUpOrder = s.twoUpOrder === 'seq' ? 'seq' : 'stack';
   s.headingFont = ['sans', 'serif', 'mono'].includes(s.headingFont) ? s.headingFont : 'sans';
@@ -70,7 +79,7 @@ function migrate(st) {
     if (!raw || !PAGE_TYPES[raw.type]) continue;
     const T = PAGE_TYPES[raw.type];
     const sec = { id: raw.id && typeof raw.id === 'string' ? raw.id.slice(0, 24) : uid(), type: raw.type, opts: {} };
-    sec.count = T.repeat ? clamp(Math.round(num(raw.count, 1)), 1, 600) : 1;
+    sec.count = T.repeat ? clamp(Math.round(num(raw.count, 1)), 1, 2000) : 1;
     const src = raw.opts && typeof raw.opts === 'object' ? raw.opts : {};
     (T.fields || []).forEach(f => {
       let v = src[f.k];
@@ -82,10 +91,25 @@ function migrate(st) {
       else if (f.type === 'image') v = (typeof v === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(v) && v.length < 5e6) ? v : '';
       else v = (v == null ? f.def : v);
       sec.opts[f.k] = v;
+      // campos de imagem com editor (packages/core/imgedit.js): preserva a
+      // fonte original + os parâmetros de ajuste, pra poder reenquadrar sem
+      // perder qualidade de novo. Sem isso, migrate() (chamado a cada commit)
+      // apagaria essas 2 chaves por não estarem na lista de `fields`.
+      if (f.type === 'image' && f.editAspect) {
+        const srcKey = f.k + 'Src', editKey = f.k + 'Edit';
+        sec.opts[srcKey] = (typeof src[srcKey] === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(src[srcKey]) && src[srcKey].length < 6e6) ? src[srcKey] : '';
+        sec.opts[editKey] = (src[editKey] && typeof src[editKey] === 'object' && typeof EPImgEdit !== 'undefined' && EPImgEdit.normEdit) ? EPImgEdit.normEdit(src[editKey]) : null;
+      }
     });
     if (src.ink && HEX.test(src.ink)) sec.opts.ink = src.ink;
     if (src.breakBefore) sec.opts.breakBefore = true;
     if (typeof src.footer === 'string' && src.footer.trim()) sec.opts.footer = sanitizeText(src.footer, 80);
+    // página personalizada: valida/migra a grade de blocos (schema versionado)
+    if (raw.type === 'custom') {
+      sec.opts.layout = (typeof EPBlocks !== 'undefined')
+        ? EPBlocks.validateLayout(src.layout || sec.opts.layout)
+        : (src.layout && typeof src.layout === 'object' ? src.layout : null);
+    }
     outSec.push(sec);
   }
   return { settings: s, sections: outSec };
@@ -115,6 +139,22 @@ function paperWH() {
   if (s.paper === 'custom') { w = s.customW; h = s.customH; }
   else { const p = PAGE_SIZES[s.paper]; w = p.w; h = p.h; }
   return s.landscape ? [h, w] : [w, h];
+}
+// decide sozinho a montagem (real | fit) quando settings.exportMode==='auto'
+// (padrão): se o papel escolhido já É uma folha A4 inteira, tamanho real
+// (nada pra cortar); se CABE dentro de uma A4 (A5, A6, pocket, meia carta…),
+// centraliza numa A4 com marcas de corte — pronto pra imprimir em casa e
+// cortar; maior que A4 (A4 mesmo, A3, carta larga…), tamanho real (gráfica).
+// '2up'/'booklet' continuam só manuais — não fazem parte desta decisão.
+function fitsWithinA4(w, h) { return (w <= 210.5 && h <= 297.5) || (w <= 297.5 && h <= 210.5); }
+function isFullSheetWH(w, h, sw, sh) { return (Math.abs(w - sw) < 0.5 && Math.abs(h - sh) < 0.5) || (Math.abs(w - sh) < 0.5 && Math.abs(h - sw) < 0.5); }
+function effectiveExportMode() {
+  const s = state.settings;
+  if (s.exportMode !== 'auto') return { mode: s.exportMode, sheet: s.sheet, auto: false };
+  const [W, H] = paperWH();
+  if (isFullSheetWH(W, H, 210, 297)) return { mode: 'real', sheet: s.sheet, auto: true };
+  if (fitsWithinA4(W, H)) return { mode: 'fit', sheet: 'a4', auto: true };
+  return { mode: 'real', sheet: s.sheet, auto: true };
 }
 // caixa útil da página `idx` (0-based). recto = página ímpar = índice par.
 function contentBox(idx) {
@@ -190,19 +230,22 @@ function expandCompute() {
       cnt = Math.max(cnt, Math.ceil(opts.entries.split('\n').filter(x => x.trim()).length / perPage));
     }
     const push = (p) => { if (items[p.k] != null) p.title = items[p.k]; pages.push(p); };
+    // "Página personalizada" replica os modos datados via opts.dating
+    const datedMode = T.dated ||
+      (sec.type === 'custom' && ['day', 'week', 'month'].includes(opts.dating) ? opts.dating : null);
     // início explícito da seção (data ou mês) sobrepõe o encadeamento automático
     const explicit = parseYMD(opts.startDate);
     if (explicit) cursor = explicit;
-    else if (T.dated === 'month' && opts.month && +opts.month >= 1 && +opts.month <= 12) cursor = new Date(s.year, +opts.month - 1, 1);
-    if (T.dated === 'month') {
+    else if (datedMode === 'month' && opts.month && +opts.month >= 1 && +opts.month <= 12) cursor = new Date(s.year, +opts.month - 1, 1);
+    if (datedMode === 'month') {
       const baseM = cursor.getMonth(), baseY = cursor.getFullYear();
       for (let k = 0; k < cnt; k++) push({ type: sec.type, opts, sectionId: sec.id, si, k, date: new Date(baseY, baseM + k, 1) });
       cursor = new Date(baseY, baseM + cnt, 1);
-    } else if (T.dated === 'week') {
+    } else if (datedMode === 'week') {
       const w0 = startOfWeek(cursor, opts.weekStart || s.weekStart);
       for (let k = 0; k < cnt; k++) push({ type: sec.type, opts, sectionId: sec.id, si, k, date: addDays(w0, k * 7) });
       cursor = addDays(w0, cnt * 7);
-    } else if (T.dated === 'day') {
+    } else if (datedMode === 'day') {
       for (let k = 0; k < cnt; k++) push({ type: sec.type, opts, sectionId: sec.id, si, k, date: addDays(cursor, k) });
       cursor = addDays(cursor, cnt);
     } else if (T.dated === 'day2') {
@@ -253,11 +296,60 @@ function drawPunch(pen, W, H, box, kind, forPrint) {
     for (let i = 0; i < n; i++) hole(12 + i * pitch, 2.6);
   }
 }
+function parseVarFields(txt) {
+  const out = {};
+  String(txt || '').split('\n').forEach(l => {
+    const m = /^\s*([^:\n]{1,40}?)\s*:\s*(.{1,120}?)\s*$/.exec(l);
+    if (m) out[m[1]] = m[2];
+  });
+  return out;
+}
+
+/* ---- marcas do documento: feriados (por opções) + eventos do usuário ----
+   Memoizado por assinatura das opções relevantes. markOn(date) -> nome | null. */
+let _marksMemo = { sig: '\0', fn: () => null };
+function docMarks() {
+  const s = state.settings;
+  const sig = [s.year, s.holUF, s.holNacional, s.holFacultativo, s.holComemorativa, s.events].join('|');
+  if (sig === _marksMemo.sig) return _marksMemo.fn;
+  let holMap = null, evIndex = null;
+  if (typeof EPDates !== 'undefined') {
+    if (s.holNacional || s.holUF || s.holFacultativo || s.holComemorativa) {
+      holMap = EPDates.holidayMap(s.year - 1, s.year + 1, {
+        uf: s.holUF || null,
+        includeOptional: !!s.holFacultativo,
+        includeCommemorative: !!s.holComemorativa,
+      });
+      // quando o usuário NÃO quer os nacionais, remove os de tipo 'nacional'
+      if (!s.holNacional) {
+        for (let y = s.year - 1; y <= s.year + 1; y++) {
+          EPDates.holidaysForYear(y, { uf: s.holUF || null, includeOptional: !!s.holFacultativo, includeCommemorative: !!s.holComemorativa })
+            .forEach(h => { if (h.type === 'nacional' && holMap[h.ymd]) { holMap[h.ymd] = holMap[h.ymd].filter(n => n !== h.name); if (!holMap[h.ymd].length) delete holMap[h.ymd]; } });
+        }
+      }
+    }
+    if (s.events && s.events.trim()) evIndex = EPDates.indexEvents(EPDates.parseEvents(s.events));
+  }
+  const ymdOf = dt => dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  const holiday = dt => { if (!dt || !holMap) return null; const a = holMap[ymdOf(dt)]; return a && a.length ? a.join(' · ') : null; };
+  const event = dt => { if (!dt || !evIndex) return null; const a = evIndex.on(dt); return a.length ? a.join(' · ') : null; };
+  const fn = (dt) => { const h = holiday(dt), e = event(dt); return [h, e].filter(Boolean).join(' · ') || null; };
+  fn.holiday = holiday; fn.event = event;
+  _marksMemo = { sig, fn };
+  return fn;
+}
 function pageCtx(pd) {
   const s = state.settings;
   const sec = state.sections.find(x => x.id === pd.sectionId);
   const ink = (sec && sec.opts && sec.opts.ink && HEX.test(sec.opts.ink)) ? sec.opts.ink : s.ink;
   const lw = s.lineWeight || 1;
+  const mk = docMarks();
+  const cov = state.sections.find(x => x.type === 'cover');
+  const varOwner = (sec && sec.opts && sec.opts.owner) ? String(sec.opts.owner)
+    : (cov && cov.opts && cov.opts.owner ? String(cov.opts.owner) : '');
+  const varSection = (sec && sec.opts && typeof sec.opts.title === 'string' && sec.opts.title.trim())
+    ? sec.opts.title.trim()
+    : (PAGE_TYPES[pd.type] ? PAGE_TYPES[pd.type].label : '');
   return {
     S: s, ink,
     faint: mixHex(ink, s.paperBg, 0.60),
@@ -272,6 +364,15 @@ function pageCtx(pd) {
     indexInSection: pd.k,
     L: (k) => LBL(s, k),           // rótulo editável ("NOTAS", "TAREFAS"…)
     hfam: s.headingFont || 'sans', // família dos títulos
+    // contexto das variáveis dinâmicas dos blocos ({pagina}, {secao}, {nome_dono}, {campo:x})
+    varPage: (pd.pageIndexGlobal || 0) + 1,
+    varSection: varSection,
+    varOwner: varOwner,
+    varFields: parseVarFields(sec && sec.opts && sec.opts.varFields),
+    // datas especiais do documento
+    markOn: mk,
+    markHoliday: pd.date ? mk.holiday(pd.date) : null,
+    markEvent: pd.date ? mk.event(pd.date) : null,
   };
 }
 function drawPageInto(pen, pd, idx, opt = {}) {
@@ -407,7 +508,8 @@ function pageSig(idx, pd) {
     s.mirrorMargins, s.ink, s.accent, s.paperBg, s.lineWeight,
     s.pageNumber, s.pageNumberStart, s.pageNumberSkip, s.pageNumberTotal, s.pageNumberPrefix, s.pageNumberSize,
     s.showPunch, s.showSafeGuide, s.highlightWeekends, s.footerText, s.headingFont,
-    s.year, s.startDate, s.weekStart, s.customW, s.customH].join('|');
+    s.year, s.startDate, s.weekStart, s.customW, s.customH,
+    s.holUF, s.holNacional, s.holFacultativo, s.holComemorativa, s.events].join('|');
 }
 function buildSVG(idx, pd, total) {
   const [W, H] = paperWH();
@@ -438,6 +540,7 @@ function render() {
     sheetsEl.appendChild(d);
   }
   $('#empty').hidden = pages.length > 0;
+  document.body.classList.toggle('onboarding', pages.length === 0);
   refreshWindow(true);
   applyZoom();
   const sec = curSection();
@@ -447,6 +550,7 @@ function render() {
   { const mpg = $('#mpg'); if (mpg) mpg.textContent = pages.length > 1 ? `Pág. ${currentPage + 1}/${pages.length}` : ''; }
   renderSectionList();
   updateHistoryButtons();
+  if (typeof updateBindHint === 'function') updateBindHint();
   if (typeof mSync === 'function') mSync();
 }
 function refreshWindow(force) {
@@ -475,9 +579,16 @@ function refreshWindow(force) {
 /* ================= seleção de seção ================= */
 function curSection() { return state.sections.find(x => x.id === selId) || null; }
 function selectSection(id, opts = {}) {
+  const had = selId;
   selId = state.sections.some(x => x.id === id) ? id : null;
   renderSectionList();
   fillRight();
+  // igual ao Polaroide Studio: clicar numa seção/página nova abre os
+  // ajustes dela no painel direito, mesmo se o painel estava fechado.
+  const mobNow = matchMedia('(max-width:820px)').matches;
+  if (selId && selId !== had && !mobNow && !uiState.right && !zen) {
+    if (typeof togglePanel === 'function') togglePanel('right', true); else { uiState.right = true; applyUI(); }
+  }
   $$('.page', sheetsEl).forEach(p => p.classList.remove('inSel'));
   const pages = expand();
   $$('.page', sheetsEl).forEach((p, i) => { if (pages[i] && pages[i].sectionId === selId) p.classList.add('inSel'); });
@@ -554,6 +665,10 @@ function addSection(type, at) {
   if (!T.repeat) sec.count = 1;
   if (['dot', 'grid', 'lined', 'linedNarrow', 'blank', 'ruledDouble', 'seyes', 'penmanship', 'ledger', 'graph5', 'isometric'].includes(type)) sec.count = 40;
   if (['prose', 'project', 'quote', 'tracker', 'sleepLog', 'finance'].includes(type)) sec.count = 1;   // 1 pág.; "itens" multiplica
+  if (type === 'custom') {
+    sec.count = 1;
+    sec.opts.layout = (typeof EPBlocks !== 'undefined') ? EPBlocks.emptyLayout() : { schema: 1, grid: 5, blocks: [] };
+  }
   mutate('addSection', () => {
     const i = (at == null) ? state.sections.length : at;
     state.sections.splice(i, 0, sec);
@@ -582,7 +697,7 @@ function changeSectionType(id, type) {
       if (k === 'ink' || k === 'breakBefore' || k === 'footer' || (T.fields || []).some(f => f.k === k)) sec.opts[k] = keep[k];
     });
     if (!T.repeat) sec.count = 1;
-    else sec.count = clamp(sec.count || 20, 1, 600);
+    else sec.count = clamp(sec.count || 20, 1, 2000);
   });
   selectSection(id, { noScroll: true });
 }
@@ -606,7 +721,7 @@ function reorderSection(fromId, toId) {
 }
 function setSectionCount(id, n) {
   const s = state.sections.find(x => x.id === id); if (!s) return;
-  mutate('count', () => { s.count = clamp(Math.round(n), 1, 600); });
+  mutate('count', () => { s.count = clamp(Math.round(n), 1, 2000); });
 }
 function setSectionOpt(id, k, v) {
   const s = state.sections.find(x => x.id === id); if (!s) return;
