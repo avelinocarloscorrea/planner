@@ -20,6 +20,13 @@ const WIZ_STEPS = [
   { title: 'Por onde você quer começar?', desc: 'Depois dá pra adicionar, remover e reordenar seções à vontade.',
     options: WIZ_STARTERS.map(id => { const t = TEMPLATES.find(x => x.id === id); return { id: t.id, label: t.name, desc: t.desc }; }),
     preview: (opt, draft) => tplThumbSVG({ id: opt.id, settings: { paper: draft.paper } }) },
+  { title: 'Como vai ser a capa?', desc: 'Pode deixar em branco e ajustar depois, no painel da seção Capa.',
+    form: true,
+    fields: [
+      { k: 'title', label: 'Título', placeholder: 'Meu Planner' },
+      { k: 'subtitle', label: 'Subtítulo (opcional)', placeholder: 'ex.: 2026' },
+      { k: 'owner', label: 'Nome — "pertence a" (opcional)', placeholder: '' },
+    ] },
   { title: 'Vai encadernar como?', desc: '',
     options: Object.keys(BINDINGS).map(id => ({ id, label: BINDINGS[id].label, desc: '' })),
     preview: (opt, draft) => tplThumbSVG({ id: draft.starterId || 'branco', settings: { paper: draft.paper }, binding: opt.id }) },
@@ -27,7 +34,7 @@ const WIZ_STEPS = [
 
 let wizStep = 0;
 let wizDraft = null;
-const wizDefaultDraft = () => ({ paper: 'a5', starterId: 'branco', binding: 'none' });
+const wizDefaultDraft = () => ({ paper: 'a5', starterId: 'branco', binding: 'none', cover: { title: '', subtitle: '', owner: '' } });
 
 function showTemplatesPane() {
   $('#ob_wizard').hidden = true;
@@ -39,12 +46,43 @@ function showWizardPane() {
   $('#ob_wizard').hidden = false;
   renderWizStep();
 }
+function wizAdvance() {
+  if (wizStep < WIZ_STEPS.length - 1) { wizStep++; renderWizStep(); }
+  else finishWizard();
+}
 function renderWizStep() {
   const step = WIZ_STEPS[wizStep];
   $('#ob_wizStep').textContent = `Passo ${wizStep + 1} de ${WIZ_STEPS.length}`;
   $('#ob_wizTitle').textContent = step.title;
   $('#ob_wizDesc').textContent = step.desc || '';
   const grid = $('#ob_wizGrid'); grid.innerHTML = '';
+
+  if (step.form) {
+    grid.classList.add('wiz-form');
+    const form = document.createElement('form');
+    form.className = 'wiz-formInner';
+    step.fields.forEach(f => {
+      const label = document.createElement('label');
+      label.innerHTML = `${esc(f.label)}<input type="text" maxlength="60" data-k="${f.k}">`;
+      const input = label.querySelector('input');
+      input.value = wizDraft.cover[f.k] || '';
+      input.placeholder = f.placeholder || '';
+      form.appendChild(label);
+    });
+    const go = document.createElement('button');
+    go.type = 'submit'; go.className = 'primary wfull mt4';
+    go.textContent = wizStep < WIZ_STEPS.length - 1 ? 'Continuar' : 'Criar documento';
+    form.appendChild(go);
+    form.onsubmit = e => {
+      e.preventDefault();
+      step.fields.forEach(f => { wizDraft.cover[f.k] = form.querySelector(`[data-k="${f.k}"]`).value.trim(); });
+      wizAdvance();
+    };
+    grid.appendChild(form);
+    return;
+  }
+  grid.classList.remove('wiz-form');
+
   step.options.forEach(opt => {
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'tpl-card' + (wizStep === 1 && opt.id === 'branco' ? ' tpl-card--blank' : '');
@@ -55,8 +93,7 @@ function renderWizStep() {
       if (wizStep === 0) wizDraft.paper = opt.id;
       else if (wizStep === 1) wizDraft.starterId = opt.id;
       else wizDraft.binding = opt.id;
-      if (wizStep < WIZ_STEPS.length - 1) { wizStep++; renderWizStep(); }
-      else finishWizard();
+      wizAdvance();
     };
     grid.appendChild(b);
   });
@@ -64,7 +101,19 @@ function renderWizStep() {
 function finishWizard() {
   const starter = TEMPLATES.find(t => t.id === wizDraft.starterId) || TEMPLATES.find(t => t.id === 'branco');
   const settings = { ...starter.settings, paper: wizDraft.paper, binding: wizDraft.binding };
-  newDoc({ settings, sections: starter.sections });
+  const sections = starter.sections.map(s => ({ ...s, opts: { ...s.opts } }));
+  const { title, subtitle, owner } = wizDraft.cover;
+  if (title || subtitle || owner) {
+    const cov = sections.find(s => s.type === 'cover');
+    if (cov) {
+      if (title) cov.opts.title = title;
+      if (subtitle) cov.opts.subtitle = subtitle;
+      if (owner) { cov.opts.owner = owner; cov.opts.showOwner = true; }
+    } else {
+      sections.unshift({ type: 'cover', count: 1, opts: { title: title || 'Meu Planner', subtitle, owner, showOwner: !!owner, style: 'plain' } });
+    }
+  }
+  newDoc({ settings, sections });
   toast('Documento pronto — é só ajustar os detalhes.');
 }
 

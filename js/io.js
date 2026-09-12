@@ -257,10 +257,25 @@ function installPrintRules(ruleList) {
   };
 }
 
+// CSS @page: id de folha conhecido (a4/letter/a3) vira "A4 landscape" em vez
+// de "297mm 210mm" — só a forma com PALAVRA-CHAVE faz o Chrome girar sozinho
+// o seletor Retrato/Paisagem do diálogo de impressão (a forma numérica define
+// o tamanho certo da página, mas não sincroniza aquele seletor, o que confunde
+// quem está imprimindo). Só se aplica quando a folha É um tamanho padrão
+// (fit/2up/livreto); no modo "tamanho real" a folha é o próprio miolo (pode
+// ser A5, B5, bolso…, sem palavra-chave equivalente em CSS) e continua numérica.
+const PAGE_SIZE_KEYWORD = { a4: 'A4', letter: 'letter', a3: 'A3' };
+function printPageSizeCss(plan, eff) {
+  const kw = !plan.paper && PAGE_SIZE_KEYWORD[eff.sheet];
+  if (kw) return kw + ' ' + (plan.sheetW > plan.sheetH ? 'landscape' : 'portrait');
+  return n2(plan.sheetW) + 'mm ' + n2(plan.sheetH) + 'mm';
+}
+
 async function printDoc() {
   const pages = expand();
   if (!pages.length) { toast('Adicione ao menos uma seção.'); return; }
   const s = state.settings, [W, H] = paperWH();
+  const eff = effectiveExportMode();
   const plan = impositionPlan(pages.length);
   busy('Preparando impressão — ' + plan.sheets.length + ' folha(s)…');
   await new Promise(r => setTimeout(r, 20));
@@ -270,7 +285,7 @@ async function printDoc() {
 
     const SW = n2(plan.sheetW), SH = n2(plan.sheetH);
     const removeRules = installPrintRules([
-      '@page{size:' + SW + 'mm ' + SH + 'mm;margin:0}',
+      '@page{size:' + printPageSizeCss(plan, eff) + ';margin:0}',
       '@media print{' +
         'html,body{margin:0!important;padding:0!important;background:#fff!important;' +
           'height:auto!important;min-height:0!important;overflow:visible!important}' +
