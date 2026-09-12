@@ -61,12 +61,18 @@ function syncDocControls() {
   { const eh = $('#d_exportHint'); if (eh) {
     const eff = effectiveExportMode();
     const [W, H] = paperWH();
-    const now = eff.mode === 'fit'
-      ? `Como está agora: o miolo (${W.toFixed(0)}×${H.toFixed(0)} mm) sai centralizado numa folha ${({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4'} com <b>marcas de corte</b> — imprima e corte.`
-      : `Como está agora: o miolo sai no tamanho exato (${W.toFixed(0)}×${H.toFixed(0)} mm), sem marca de corte.`;
-    eh.innerHTML = s.exportMode === 'auto'
-      ? `<b>Automático</b>: se o papel escolhido cabe numa A4 mas não é uma A4 inteira (A5, A6, pocket…), centraliza numa A4 com marcas de corte; senão sai no tamanho exato. ${now} Imprima sempre em <b>100%</b>, margens <b>Nenhuma</b>.`
-      : '';
+    const size = `${W.toFixed(0)}×${H.toFixed(0)} mm`;
+    const sheetLabel = ({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4';
+    const HINTS = {
+      auto: eff.mode === 'fit'
+        ? `Decide sozinho: como o miolo (${size}) não fecha uma folha ${sheetLabel}, sai centralizado com <b>marcas de corte</b>. Imprima em <b>100%</b>, sem margens.`
+        : `Decide sozinho: como o miolo (${size}) já fecha (ou passa de) uma folha ${sheetLabel}, sai no <b>tamanho exato</b>, sem marca de corte. Imprima em <b>100%</b>, sem margens.`,
+      real: `Página no tamanho exato do miolo (${size}), sem marca de corte — pronta para a gráfica. Imprima em <b>100%</b>, sem margens.`,
+      fit: `Miolo centralizado numa folha ${sheetLabel} com <b>marcas de corte</b>. Imprima em <b>100%</b>, sem margens, e corte na marca.`,
+      '2up': `Duas páginas lado a lado por folha. Imprima só a <b>frente</b>, corte ao meio e ponha a metade da direita sob a da esquerda — mantém a ordem. Imprima em <b>100%</b>, sem margens.`,
+      booklet: `Páginas reordenadas para virar livreto: imprima <b>frente e verso</b> virando pela borda curta, empilhe e <b>dobre ao meio</b>. Imprima em <b>100%</b>, sem margens.`,
+    };
+    eh.innerHTML = HINTS[s.exportMode] || '';
   } }
   chk('#d_guide', s.showSafeGuide);
   set('#d_dpi', s.exportDPI);

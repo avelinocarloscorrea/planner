@@ -208,7 +208,6 @@
       <label>Resolução do PNG
         <select id="d_dpi"><option value="200">200 dpi</option><option value="300">300 dpi</option><option value="450">450 dpi</option><option value="600">600 dpi</option></select></label>
       <p class="hint" id="d_exportHint"></p>
-      <p class="hint"><b>Tamanho real</b>: a página sai no tamanho do miolo — para a gráfica. <b>1 por folha</b>: miolo centralizado numa folha comum com <b>marcas de corte</b>. <b>2 por folha</b>: duas páginas lado a lado (ex.: 2×A5 numa A4). Imprima <b>só frente</b>, corte na linha do meio e ponha a pilha da direita embaixo da esquerda — fica na ordem. <b>Livreto</b>: as páginas são reordenadas para você imprimir <b>frente e verso</b> (virar pela borda curta), empilhar e <b>dobrar ao meio</b> — vira um caderninho. Imprima sempre em <b>100%</b>, margens <b>Nenhuma</b>.</p>
     </div></details>
 
     <p class="hint" id="d_privadoNote"><span class="pill">Privado</span> &nbsp;O documento fica só neste navegador. Para backup use <b>Salvar projeto</b> no menu.
@@ -363,14 +362,7 @@
   <div class="dhead">Privacidade e segurança <button class="iconbtn ghost" data-close data-i="x"></button></div>
   <div class="dbody scrl">
     <p><span class="pill">100% no seu computador</span></p>
-    <p>Este programa <b>não envia nada</b> para servidor nenhum. Textos, nomes, imagens e ajustes nunca saem do navegador.</p>
-    <h4>Mecanismos ativos</h4>
-    <p>• <b>Content-Security-Policy</b> com <code>default-src 'none'</code>: o navegador bloqueia qualquer envio de dados (fetch, XHR, formulário, WebSocket) e qualquer objeto/plugin.<br>
-       • <b>Sem scripts externos</b> (<code>script-src 'self'</code>) e sem código embutido — nada de terceiros roda aqui.<br>
-       • Toda imagem que você adiciona (logo, fundo da capa) é <b>redesenhada internamente</b>: metadados (EXIF/GPS) e conteúdo escondido são removidos, e o arquivo é reduzido antes de entrar no projeto.<br>
-       • O PDF é montado no próprio programa, vetor por vetor.<br>
-       • Projetos abertos (.json) passam pela mesma limpeza; valores fora do padrão são corrigidos.<br>
-       • O documento fica só no armazenamento local deste navegador. Para levar a outro aparelho, use <b>Salvar projeto</b>.</p>
+    <p>Nada do que você faz aqui — texto, imagem ou ajuste — sai do seu navegador. Detalhes técnicos (CSP, tratamento de imagem, armazenamento local) estão na <a href="https://www.esmeraldapaper.com.br/politica-de-privacidade/#ferramentas-gratuitas" target="_blank" rel="noopener noreferrer">política de privacidade, seção Ferramentas gratuitas</a>.</p>
     <button id="p_wipe" class="danger wfull mt4" data-i="trash">Apagar tudo deste navegador</button>
   </div>
 </dialog>
@@ -378,8 +370,8 @@
 <dialog id="about">
   <div class="dhead">Sobre <button class="iconbtn ghost" data-close data-i="x"></button></div>
   <div class="dbody scrl">
-    <p><b>Planner Studio</b> — gera o miolo de cadernos, planners e agendas: pontilhado, quadriculado, pautado (com pauta dupla, francesa e de caligrafia), calendários mensais, semanas, dias, hábitos, refeições, finanças, rastreadores e mais — com capa personalizável (logo e imagem de fundo), pronto para impressão em PDF vetorial.</p>
-    <p>Projeto de portfólio de <b>Carlos Avelino Correa</b> — <a href="https://github.com/avelinocarloscorrea" target="_blank" rel="noopener noreferrer">github.com/avelinocarloscorrea</a>.</p>
+    <p><b>Planner Studio</b> monta o miolo de cadernos, planners e agendas — pautas, calendários, hábitos, finanças e páginas personalizadas por blocos — e exporta um PDF vetorial pronto para impressão.</p>
+    <p>Criado por <b>Carlos Avelino Correa</b>. Código aberto no GitHub: <a href="https://github.com/avelinocarloscorrea/planner" target="_blank" rel="noopener noreferrer">avelinocarloscorrea/planner</a> (<a href="https://github.com/avelinocarloscorrea/planner/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">licença MIT</a>).</p>
     <p>Novo por aqui? Veja o <a href="guia.html" target="_blank" rel="noopener noreferrer">guia do usuário</a>.</p>
     <p class="faint">Funciona offline. Nenhum dado é coletado.</p>
   </div>
