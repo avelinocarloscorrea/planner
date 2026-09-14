@@ -1,7 +1,8 @@
 /* Planner Studio — js/wizard.js
-   "Montar passo a passo": do zero a um documento pronto em 7 passos curtos —
-   tipo → papel → capa (textos + estilo, com miniaturas reais) → cores e
-   fontes → encadernação → onde vai imprimir → resumo. Cada miniatura é
+   "Montar passo a passo": do zero a um documento pronto em 8 passos curtos —
+   tipo → papel → capa (nome, textos e estilo, com miniaturas reais) → cores e
+   fontes → toques finais (marca d'água e ilustração nas páginas) →
+   encadernação → onde vai imprimir → resumo. Cada miniatura é
    desenhada pelo mesmo motor da página/PDF, com as escolhas acumuladas.
    (parte de app; carregado depois de ui.js/editor.js/shell-ui.js) */
 "use strict";
@@ -27,8 +28,12 @@ const WIZ_BIND_TIP = {
 
 let wizStep = 0;
 let wizDraft = null;
-const wizDefaultDraft = () => ({ starterId: 'semana-dupla', paper: 'a5', cover: { title: '', subtitle: String(DEFAULTS.year), owner: '', style: 'year' },
-  palette: 'esmeralda', headingFont: 'playfair', binding: 'wireo', print: 'home', touched: {} });
+const wizDefaultDraft = () => ({ starterId: 'semana-dupla', paper: 'a5', cover: { title: '', subtitle: String(DEFAULTS.year), owner: '', style: 'nameScript' },
+  palette: 'esmeralda', headingFont: 'playfair', binding: 'wireo', print: 'home', wm: 'none', wmText: '', art: '', artPos: 'corner', coverFilter: 'name', touched: {} });
+
+// posição da ilustração repetida nas páginas (dx/dy a partir do centro, escala)
+const WIZ_ART_POS = { corner: { label: 'Canto de baixo', f: (W, H) => ({ dx: W / 2 - 16, dy: H / 2 - 20, s: 0.55 }) },
+  top: { label: 'Topo', f: (W, H) => ({ dx: W / 2 - 16, dy: -H / 2 + 18, s: 0.5 }) }, center: { label: 'Centro, grande', f: () => ({ s: 1.8 }) } };
 
 // documento que o assistente vai criar, a partir do rascunho
 function wizDoc(d) {
@@ -46,6 +51,17 @@ function wizDoc(d) {
   cov.opts.subtitle = c.subtitle;
   cov.opts.owner = c.owner; cov.opts.showOwner = true;
   cov.opts.style = c.style;
+  // toques finais: marca d'água e ilustração repetida nas páginas do miolo
+  if (d.wm !== 'none') settings.wm = { on: true, kind: 'text', text: d.wm === 'name' ? (c.owner || 'Seu Nome') : (d.wmText || 'Esmeralda Paper'), pos: 'tile', opacity: 0.08, rot: -30, size: 0.8 };
+  if (d.art) {
+    const [W, H] = withTemplateState({ settings, sections: [] }, () => paperWH());
+    sections.forEach((sec, i) => {
+      if (sec.type === 'cover' || sec.type === 'calibration' || !((sec.count || 1) > 1)) return;
+      const id = 'w' + i;
+      sec.opts.extras = [{ id, type: 'art', art: d.art, text: '', src: '' }];
+      sec.opts.el = { ['x:' + id]: (WIZ_ART_POS[d.artPos] || WIZ_ART_POS.corner).f(W, H) };
+    });
+  }
   return { settings, sections };
 }
 function wizCoverSVG(d, style) {
@@ -74,6 +90,8 @@ const WIZ_STEPS = [
     cover: true },
   { key: 'look', title: 'Cores e letras', desc: 'Paleta de cores do documento e a fonte dos títulos. As linhas das páginas usam a cor principal.',
     look: true },
+  { key: 'extras', title: 'Toques finais', desc: 'Opcional: marca d’água discreta e uma ilustração que se repete nas páginas. Tudo dá para mudar ou tirar depois.',
+    extras: true },
   { key: 'binding', title: 'Como vai encadernar?', desc: 'Define a margem reservada para lombada ou furos — nada fica em cima deles.',
     options: () => Object.keys(BINDINGS).map(id => ({ id, label: BINDINGS[id].label, desc: WIZ_BIND_TIP[id] || '' })),
     selected: d => d.binding, pick: (d, id) => { d.binding = id; },
@@ -144,6 +162,7 @@ function renderWizStep() {
     });
   } else if (step.cover) renderWizCover(grid);
   else if (step.look) renderWizLook(grid);
+  else if (step.extras) renderWizExtras(grid);
   else if (step.summary) renderWizSummary(grid);
   grid.after(foot);
   const oldFoot = grid.parentNode.querySelectorAll('.wiz-foot'); oldFoot.forEach(f => { if (f !== foot) f.remove(); });
@@ -153,17 +172,24 @@ function renderWizCover(grid) {
   const d = wizDraft;
   grid.className = 'wiz-cover';
   const fields = [
+    { k: 'owner', label: 'Seu nome (capa personalizada)', ph: 'ex.: Mariana Alves' },
     { k: 'title', label: 'Título', ph: ((TEMPLATES.find(t => t.id === d.starterId) || {}).sections || []).find(x => x.type === 'cover')?.opts?.title || 'Meu Planner' },
     { k: 'subtitle', label: 'Subtítulo ou ano', ph: 'ex.: 2027' },
-    { k: 'owner', label: 'Nome (pertence a…)', ph: 'opcional' },
   ];
   const form = document.createElement('div'); form.className = 'wiz-coverForm';
   form.innerHTML = fields.map(f => `<label>${esc(f.label)}<input type="text" maxlength="60" data-k="${f.k}" placeholder="${esc(f.ph)}" value="${esc(d.cover[f.k] || '')}"></label>`).join('') +
     `<div class="wiz-bigprev" id="wiz_bigprev"></div>`;
+  const filt = document.createElement('div'); filt.className = 'grp wiz-coverFilt';
+  filt.innerHTML = [['name', 'Com nome'], ['classic', 'Clássicas'], ['all', 'Todas']].map(([v, l]) => `<button type="button" class="chip${d.coverFilter === v ? ' on' : ''}" data-f="${v}">${l}</button>`).join('');
   const gal = document.createElement('div'); gal.className = 'wiz-coverGal';
-  grid.append(form, gal);
-  const styles = PAGE_TYPES.cover.fields.find(f => f.k === 'style').options;
+  grid.append(form, filt, gal);
+  const allStyles = PAGE_TYPES.cover.fields.find(f => f.k === 'style').options;
+  filt.addEventListener('click', e => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    d.coverFilter = b.dataset.f; filt.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === b)); paint();
+  });
   const paint = () => {
+    const styles = allStyles.filter(o => d.coverFilter === 'all' || (d.coverFilter === 'name') === /^name/.test(o.v));
     gal.innerHTML = styles.map(o => `<button type="button" class="tpl-card tpl-card--cover${d.cover.style === o.v ? ' on' : ''}" data-st="${esc(o.v)}"><span class="tpl-card__thumb">${wizCoverThumb(d, o.v)}</span><span class="tpl-card__name">${esc(o.label.replace(/\s*\(.*\)$/, ''))}</span></button>`).join('');
     bigPrev();
   };
@@ -180,7 +206,41 @@ function renderWizCover(grid) {
     d.cover[k] = e.target.value;
     clearTimeout(t); t = setTimeout(paint, 260);
   });
-  paint();
+  if (typeof EPArt !== 'undefined' && !EPArt.get('enfeites/ramo')) { gal.innerHTML = '<p class="hint">Carregando estilos…</p>'; EPArt.load('enfeites').then(paint); }
+  else paint();
+}
+
+function renderWizExtras(grid) {
+  const d = wizDraft;
+  grid.className = 'wiz-look';
+  const chip = (attr, v, l, on) => `<button type="button" class="chip${on ? ' on' : ''}" data-${attr}="${v}">${esc(l)}</button>`;
+  grid.innerHTML = `<div class="wiz-lookL">
+      <span class="fld-lbl">Marca d'água</span>
+      <div class="grp">${chip('wm', 'none', 'Sem marca d’água', d.wm === 'none')}${chip('wm', 'name', 'Com meu nome', d.wm === 'name')}${chip('wm', 'text', 'Texto próprio', d.wm === 'text')}</div>
+      <label id="wiz_wmText"${d.wm === 'text' ? '' : ' hidden'}>Texto <input type="text" maxlength="60" value="${esc(d.wmText)}" placeholder="ex.: sua marca"></label>
+      <span class="fld-lbl">Ilustração nas páginas</span>
+      <div class="wiz-art"><span class="wm-pick__prev" id="wiz_artPrev"></span>
+        <button type="button" data-art="pick">${d.art ? 'Trocar ilustração' : 'Escolher ilustração'}</button>
+        ${d.art ? '<button type="button" class="ghost" data-art="none">Tirar</button>' : ''}</div>
+      <div class="grp"${d.art ? '' : ' hidden'}>${Object.entries(WIZ_ART_POS).map(([k, p]) => chip('pos', k, p.label, d.artPos === k)).join('')}</div>
+      <p class="hint">A ilustração entra nas seções com várias páginas. Na folha você move, aumenta, troca a cor ou exclui.</p>
+    </div><div class="wiz-bigprev" id="wiz_extprev"></div>`;
+  const prev = () => {
+    const doc = wizDoc(d); const [W, H] = withTemplateState(doc, () => paperWH());
+    const back = withTemplateState(doc, () => { const pages = expand(); const bi = representativePage(pages); return bi > 0 ? exportPageSVG(pages, bi, pages.length) : null; });
+    $('#wiz_extprev').innerHTML = pairThumbHTML(wizCoverSVG(d, d.cover.style), back, W, H);
+    $('#wiz_artPrev').innerHTML = d.art ? EPArt.svg(d.art, '#35594d') : '';
+  };
+  grid.addEventListener('click', e => {
+    const w = e.target.closest('[data-wm]'), a = e.target.closest('[data-art]'), p = e.target.closest('[data-pos]');
+    if (w) { d.wm = w.dataset.wm; renderWizExtras(grid); return; }
+    if (p) { d.artPos = p.dataset.pos; renderWizExtras(grid); return; }
+    if (a && a.dataset.art === 'none') { d.art = ''; renderWizExtras(grid); return; }
+    if (a) EPArtPicker.open({ title: 'Ilustração nas páginas', current: d.art, onPick: id => EPArt.ensure([id]).then(() => { d.art = id; renderWizExtras(grid); }) });
+  });
+  const t = grid.querySelector('#wiz_wmText input');
+  if (t) { let tm; t.addEventListener('input', () => { d.wmText = t.value; clearTimeout(tm); tm = setTimeout(prev, 250); }); }
+  EPArt.ensure(d.art ? [d.art, 'enfeites/ramo'] : ['enfeites/ramo']).then(prev);
 }
 
 function renderWizLook(grid) {
@@ -221,6 +281,7 @@ function renderWizSummary(grid) {
     ['Páginas', `${n} páginas (${Math.ceil(n / 2)} folhas frente e verso)`],
     ['Tamanho', PAGE_SIZES[d.paper] ? PAGE_SIZES[d.paper].label : d.paper],
     ['Capa', `${d.cover.title || (starter && starter.name) || ''} · estilo ${styleLbl.replace(/\s*\(.*\)$/, '').toLowerCase()}`],
+    ['Toques finais', [d.wm === 'none' ? 'sem marca d’água' : 'marca d’água “' + (d.wm === 'name' ? (d.cover.owner || 'Seu Nome') : d.wmText) + '”', d.art ? 'ilustração ' + ((EPArt.get(d.art) || {}).label || '').toLowerCase() + ' nas páginas' : ''].filter(Boolean).join(' · ')],
     ['Cores e fonte', `${(PALETTES[d.palette] || {}).label || ''} · ${(fams[d.headingFont] ? fams[d.headingFont].label.split(' — ')[0] : '')}`],
     ['Encadernação', BINDINGS[d.binding] ? BINDINGS[d.binding].label : '—'],
     ['Impressão', d.print === 'shop' ? 'Gráfica — PDF/X-4 CMYK, sangria 3 mm, marcas de corte' : 'Em casa — montagem automática na folha'],

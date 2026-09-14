@@ -1,5 +1,19 @@
 # Histórico
 
+## 0.4 — edição estilo Canva, ilustrações e capas com nome
+- **Editar direto na folha em qualquer página**: tocar seleciona, arrastar move,
+  alças mudam o tamanho, tocar de novo digita ali mesmo. Barra de ícones (fonte,
+  tamanho, cor, negrito, centralizar, duplicar, trocar, excluir) no rodapé do
+  celular e no topo da prancheta no computador.
+- **Catálogo de ilustrações** (~400, com busca): enfeites e molduras, flores,
+  animais, comidas, festas, carinhas e ícones de traço recoloríveis — vetoriais
+  no PDF. Textos, imagens e ilustrações em qualquer seção do miolo.
+- **Capas com nome personalizado** (8 estilos) e **marca d'água** opcional
+  (texto, ilustração ou imagem; centro, canto ou repetida).
+- **Páginas repetidas agrupadas** na prévia (uma miniatura "×60 páginas").
+- **Passo a passo** com filtro de capas e "toques finais".
+- Celular: sem acrílico por padrão, botão + mais baixo, controles revisados.
+
 ## 0.3 — interface redesenhada e impressão com prévia
 - **Interface nova**: etapas Modelo → Personalizar → Imprimir na barra, painel
   esquerdo em abas (Páginas, Papel, Datas, Estilo, Modelos), barra flutuante de

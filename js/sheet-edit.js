@@ -1,30 +1,38 @@
 /* Planner Studio — js/sheet-edit.js
-   Edição direta na folha (estilo Canva) para capa, divisória e frase:
-   tocar/clicar num elemento seleciona; arrastar move; alças mudam o tamanho;
-   barra com texto, fonte, cor, negrito, centralizar, restaurar e ocultar.
-   Motor genérico em vendor/core/canvas-edit.js (EPCanvasEdit).
-   Os ajustes ficam em sec.opts.el[chave] e textos/imagens livres em
-   sec.opts.extras — desenhados pelas mesmas funções da tela e do PDF.
+   Edição direta na folha (estilo Canva) em qualquer página: tocar/clicar num
+   elemento seleciona; arrastar move; alças mudam o tamanho; tocar de novo
+   digita ali mesmo; a barra de ícones faz o resto. Tocar na página sem
+   elemento abre a barra "Adicionar" (texto, ilustração, imagem).
+   Motor genérico em vendor/core/canvas-edit*.js (EPCanvasEdit).
+   Os ajustes ficam em sec.opts.el[chave] e os elementos livres em
+   sec.opts.extras (js/decor.js) — desenhados igual na tela e no PDF.
+   Painel lateral e galeria de capas: js/sheet-panel.js.
    (parte de app; carregado depois de ui.js) */
 "use strict";
 
-const SHEET_EDITABLE = { cover: true, tab: true, quote: true };
 // chave do elemento -> campo de texto da seção
-const SHEET_TEXT_FIELD = { title: 'title', subtitle: 'subtitle', year: 'subtitle', owner: 'owner', text: 'text', author: 'author' };
-const SHEET_TEXT_LABEL = { title: 'Título', subtitle: 'Subtítulo', year: 'Ano / destaque', owner: 'Nome (pertence a…)', text: 'Frase', author: 'Autor' };
+const SHEET_TEXT_FIELD = { title: 'title', subtitle: 'subtitle', year: 'subtitle', owner: 'owner', name: 'owner', text: 'text', author: 'author', tagline: 'subtitle' };
+const SHEET_TEXT_LABEL = { initial: 'Inicial', title: 'Título', subtitle: 'Subtítulo', year: 'Ano / destaque', owner: 'Nome (pertence a…)', name: 'Nome', text: 'Frase', author: 'Autor', tagline: 'Frase curta' };
+const SHEET_ICON = {
+  text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>',
+  art: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20c-4-3-8-6-8-10a4 4 0 017.5-2A4 4 0 0120 10c0 4-4 7-8 10z"/><path d="M18 2.5l.8 1.7 1.7.8-1.7.8L18 7.5l-.8-1.7-1.7-.8 1.7-.8z"/></svg>',
+  image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg>',
+  panel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
+};
 
 function sheetPageInfo(pageEl) {
   if (!pageEl || pageEl.dataset.idx == null) return null;
   const idx = +pageEl.dataset.idx, pages = expand(), pd = pages[idx];
-  if (!pd || !SHEET_EDITABLE[pd.type]) return null;
+  if (!pd || pd.type === 'calibration' || pd.filler) return null;
   const sec = state.sections.find(x => x.id === pd.sectionId);
   return sec ? { idx, pd, sec, pages } : null;
 }
+const sheetExtra = (o, key) => key.startsWith('x:') ? (o.extras || []).find(z => 'x:' + z.id === key) : null;
 function sheetFonts() {
   const F = (typeof EPFontMetrics !== 'undefined' && EPFontMetrics.families) || {};
   return Object.entries(F).map(([v, f]) => ({ v, label: f.label.split(' — ')[0] }));
 }
-// redesenha só esta página (e as outras páginas da mesma seção que estiverem montadas)
+// redesenha as páginas montadas desta seção (os elementos valem para todas)
 let _sheetRaf = 0;
 function sheetRedraw(info, live) {
   const draw = () => {
@@ -32,6 +40,7 @@ function sheetRedraw(info, live) {
     const pages = expand(), total = pages.length;
     [...sheetsEl.children].forEach((el, i) => {
       if (!pages[i] || pages[i].sectionId !== info.sec.id || !el.dataset.sig) return;
+      if (live && Math.abs(i - info.idx) > 1) return;          // ao vivo: só a página em edição e as vizinhas
       el.innerHTML = buildSVG(i, pages[i], total);
       el.dataset.sig = pageSig(i, pages[i]) + '|' + total;
     });
@@ -40,6 +49,10 @@ function sheetRedraw(info, live) {
   if (live) { if (!_sheetRaf) _sheetRaf = requestAnimationFrame(draw); }
   else { if (_sheetRaf) cancelAnimationFrame(_sheetRaf); draw(); }
 }
+function sheetReselect(idx, key) {
+  sheetEditor.clear();
+  setTimeout(() => { const pg = sheetsEl.querySelector(`.page[data-idx="${idx}"]`); if (pg) sheetEditor.select(pg, key); }, 40);
+}
 
 const sheetEditor = EPCanvasEdit.create({
   sheets: sheetsEl,
@@ -47,25 +60,41 @@ const sheetEditor = EPCanvasEdit.create({
   isMobile: () => isMobile(),
   scroller: () => stage,
   fonts: sheetFonts(),
+  addTools: [
+    { a: 'text', label: 'Texto', icon: SHEET_ICON.text, title: 'Adicionar texto' },
+    { a: 'art', label: 'Ilustração', icon: SHEET_ICON.art, title: 'Adicionar ilustração do catálogo' },
+    { a: 'image', label: 'Imagem', icon: SHEET_ICON.image, title: 'Adicionar imagem do aparelho' },
+    { a: 'panel', label: 'Ajustes', icon: SHEET_ICON.panel, title: 'Ajustes desta página' },
+  ],
+  add(pageEl, a) {
+    const info = sheetPageInfo(pageEl); if (!info) return;
+    if (a !== 'panel') { sheetAdd(a, info); return; }
+    sheetEditor.clear();
+    if (isMobile() && typeof mOpenTab === 'function') mOpenTab('secao');
+    else { const r = $('#right'); if (r) r.scrollTop = 0; }
+  },
   hits(pageEl) {
     const info = sheetPageInfo(pageEl); if (!info) return null;
     const [W, H] = paperWH(), hits = [];
-    const pen = SvgPen(W, H, {});
-    try { drawPageInto(pen, info.pd, info.idx, { screen: true, hits, total: info.pages.length }); } catch (e) { return null; }
+    try { drawPageInto(SvgPen(W, H, {}), info.pd, info.idx, { screen: true, hits, total: info.pages.length }); } catch (e) { return null; }
     return { w: W, h: H, items: hits };
   },
   get(pageEl, key) {
     const info = sheetPageInfo(pageEl); if (!info) return null;
     const o = info.sec.opts, e = (o.el && o.el[key]) || {};
     const out = { dx: e.dx || 0, dy: e.dy || 0, s: e.s || 1, color: e.color || null, fam: e.fam || '', bold: e.bold == null ? null : e.bold };
-    if (key.startsWith('x:')) {
-      const x = (o.extras || []).find(z => 'x:' + z.id === key);
-      if (x && x.type === 'text') { out.text = x.text; out.textLabel = 'Texto'; out.multiline = true; }
-      out.removable = true; out.canReplace = !!(x && x.type === 'image');
+    const x = sheetExtra(o, key);
+    if (x) {
+      if (x.type === 'text') { out.text = x.text; out.textLabel = 'Texto'; out.multiline = true; out.maxlength = 400; }
+      out.removable = true; out.duplicable = true;
+      out.canReplace = x.type !== 'text';
+      if (x.type === 'art') { const it = EPArt.get(x.art); out.colorable = !it || it.mono; }
     } else if (SHEET_TEXT_FIELD[key]) {
-      out.text = o[SHEET_TEXT_FIELD[key]] || ''; out.textLabel = SHEET_TEXT_LABEL[key]; out.multiline = key === 'text';
+      out.text = o[SHEET_TEXT_FIELD[key]] || ''; out.textLabel = SHEET_TEXT_LABEL[key];
+      out.multiline = key === 'text'; out.maxlength = key === 'text' ? 400 : 80;
     }
     if (key === 'logo') out.canReplace = true;
+    if (key === 'orn') out.colorable = true;
     if (key === 'bg') { out.canReplace = true; out.removable = true; }
     return out;
   },
@@ -84,7 +113,8 @@ const sheetEditor = EPCanvasEdit.create({
     const info = sheetPageInfo(pageEl); if (!info) return;
     const o = info.sec.opts;
     if ('text' in patch) {
-      if (key.startsWith('x:')) { const x = (o.extras || []).find(z => 'x:' + z.id === key); if (x) x.text = sanitizeText(patch.text, 400); }
+      const x = sheetExtra(o, key);
+      if (x) x.text = sanitizeText(patch.text, 400);
       else if (SHEET_TEXT_FIELD[key]) o[SHEET_TEXT_FIELD[key]] = sanitizeText(patch.text, key === 'text' ? 4000 : 80);
     }
     const geo = {};
@@ -99,106 +129,74 @@ const sheetEditor = EPCanvasEdit.create({
   },
   action(pageEl, key, name) {
     const info = sheetPageInfo(pageEl); if (!info) return;
-    const o = info.sec.opts;
+    const o = info.sec.opts, x = sheetExtra(o, key);
     if (name === 'reset') { if (o.el) delete o.el[key]; }
     else if (name === 'hide') { o.el = o.el || {}; o.el[key] = { ...(o.el[key] || {}), hide: true }; toast('Elemento oculto — para mostrar de novo use “Elementos na folha” nos ajustes.'); }
     else if (name === 'delete' && key === 'bg') { delete o.bg; delete o.bgSrc; delete o.bgEdit; }
     else if (name === 'delete') { o.extras = (o.extras || []).filter(z => 'x:' + z.id !== key); if (o.el) delete o.el[key]; }
+    else if (name === 'duplicate' && x) {
+      const id = uid(), e = (o.el && o.el[key]) || {};
+      o.extras = [...o.extras, { ...x, id }];
+      o.el = { ...(o.el || {}), ['x:' + id]: { ...e, dx: (+e.dx || 0) + 8, dy: (+e.dy || 0) + 8 } };
+      sheetRedraw(info, false);
+      return 'x:' + id;
+    }
     else if (name === 'image' && key === 'bg') {
       pickNewImage({ cb: res => {
         const [W, H] = paperWH();
         EPImgEdit.loadImage(res.photoSrc).then(im => {
           const [ow, oh] = W >= H ? [2400, Math.round(2400 * H / W)] : [Math.round(2400 * W / H), 2400];
           o.bgSrc = res.photoSrc; o.bgEdit = EPImgEdit.defaultEdit(); o.bg = EPImgEdit.bakeDataURL(im, o.bgEdit, ow, oh);
-          sheetRedraw(info, false); sheetEditor.clear(); setTimeout(() => sheetEditor.select(sheetsEl.children[info.idx], 'bg'), 50);
+          sheetRedraw(info, false); sheetReselect(info.idx, 'bg');
         });
+      } });
+      return;
+    }
+    else if (name === 'image' && x && x.type === 'art') {
+      EPArtPicker.open({ title: 'Trocar ilustração', current: x.art, onPick: id => {
+        pushHistory('sheet-art'); x.art = id;
+        EPArt.ensure([id]).then(() => { sheetRedraw(info, false); sheetReselect(info.idx, key); });
       } });
       return;
     }
     else if (name === 'image') {
       pickImage(src => {
         pushHistory('sheet-img');
-        if (key === 'logo') o.logo = src;
-        else { const x = (o.extras || []).find(z => 'x:' + z.id === key); if (x) x.src = src; }
+        if (key === 'logo') o.logo = src; else if (x) x.src = src;
         sheetRedraw(info, false); sheetEditor.refresh();
       });
       return;
     }
     sheetRedraw(info, false);
   },
-  colors(pageEl) {
+  colors() {
     const s = state.settings;
-    return [...new Set([s.ink, s.accent, s.paperBg, '#1f2522', '#ffffff', mixHex(s.accent, s.paperBg, 0.5), '#8a2f2f', '#35594d', '#1f3a52'].map(c => c.toLowerCase()))];
+    return [...new Set([s.ink, s.accent, s.paperBg, '#1f2522', '#ffffff', mixHex(s.accent, s.paperBg, 0.5), '#8a2f2f', '#35594d', '#1f3a52', '#c9a24a', '#d98c9a'].map(c => c.toLowerCase()))];
   },
 });
 
-// adicionar texto / imagem livre na página da seção selecionada
-function sheetAdd(type) {
-  const sec = curSection(); if (!sec || !SHEET_EDITABLE[sec.type]) return;
-  const add = src => {
+// adicionar texto / ilustração / imagem livre na seção (aparece em todas as páginas dela)
+function sheetAdd(type, info) {
+  const sec = info ? info.sec : curSection(); if (!sec || sec.type === 'calibration') return;
+  const idx = info ? info.idx : expand().findIndex(p => p.sectionId === sec.id);
+  const add = patch => {
     pushHistory('sheet-add');
     const id = uid();
-    sec.opts.extras = [...(sec.opts.extras || []), { id, type, text: type === 'text' ? 'Seu texto' : '', src: src || '' }];
+    sec.opts.extras = [...(sec.opts.extras || []), { id, type, text: '', src: '', art: '', ...patch }];
     save(); refreshWindow(true);
-    const pages = expand(), idx = pages.findIndex(p => p.sectionId === sec.id);
-    const pg = sheetsEl.children[idx];
-    if (pg) { if (isMobile() && typeof mOpenTab === 'function') mOpenTab('paginas'); gotoPage(idx); setTimeout(() => sheetEditor.select(pg, 'x:' + id), 60); }
-    fillRight();
+    if (!info && idx >= 0) { if (isMobile() && typeof mOpenTab === 'function') mOpenTab('paginas'); gotoPage(idx); }
+    sheetReselect(idx, 'x:' + id);
+    if (typeof fillRight === 'function') fillRight();
+    if (sec.count > 1) toast(`Aparece nas ${sec.count} páginas desta seção.`);
   };
-  if (type === 'image') pickImage(src => add(src)); else add();
-}
-function sheetShowHidden(key) {
-  const sec = curSection(); if (!sec || !sec.opts.el || !sec.opts.el[key]) return;
-  pushHistory('sheet-show'); delete sec.opts.el[key].hide; save(); refreshWindow(true); fillRight();
-}
-function sheetResetAll() {
-  const sec = curSection(); if (!sec) return;
-  pushHistory('sheet-reset'); delete sec.opts.el; save(); refreshWindow(true); sheetEditor.refresh(); fillRight();
-  toast('Posições, tamanhos e cores dos elementos restaurados.');
+  if (type === 'image') pickImage(src => add({ src }));
+  else if (type === 'art') EPArtPicker.open({ title: 'Adicionar ilustração', onPick: id => EPArt.ensure([id]).then(() => add({ art: id })) });
+  else add({ text: 'Seu texto' });
 }
 
-// bloco "Elementos na folha" no painel de ajustes da seção
-{
-  const _fill = fillRight;
-  fillRight = function () {
-    _fill.apply(this, arguments);
-    const sec = curSection(), wrap = $('#rs_fields');
-    const old = $('#rs_sheet'); if (old) old.remove();
-    if (!sec || !wrap || !SHEET_EDITABLE[sec.type]) return;
-    const el = sec.opts.el || {}, hidden = Object.keys(el).filter(k => el[k] && el[k].hide);
-    const box = document.createElement('div');
-    box.id = 'rs_sheet'; box.className = 'grp-block rs-sheet';
-    box.innerHTML = `<div class="grp-title">Elementos na folha</div>
-      <p class="hint">${isMobile() ? 'Toque' : 'Clique'} num texto ou imagem <b>na própria página</b> para mover, mudar tamanho, fonte e cor.</p>
-      <div class="rs-sheet__acts"><button type="button" data-sa="text">＋ Texto</button><button type="button" data-sa="image">＋ Imagem</button></div>
-      ${hidden.length ? `<div class="rs-sheet__hidden"><span class="fld-lbl">Ocultos</span>${hidden.map(k => `<button type="button" class="chip" data-show="${esc(k)}">Mostrar ${esc(SHEET_TEXT_LABEL[k] || (k === 'logo' ? 'logo' : k === 'monogram' ? 'monograma' : 'elemento'))}</button>`).join('')}</div>` : ''}
-      ${Object.keys(el).length ? '<button type="button" class="ep-linkbtn" data-sa="reset">Restaurar posições e tamanhos</button>' : ''}`;
-    wrap.prepend(box);
-    // estilo da capa: galeria visual com a capa real em cada estilo (em vez de lista)
-    const stSel = sec.type === 'cover' && $('#fld_style');
-    if (stSel) {
-      const lab = stSel.closest('label');
-      const gal = document.createElement('div'); gal.className = 'cover-gal';
-      const [W, H] = paperWH();
-      gal.innerHTML = `<span class="fld-lbl">Estilo da capa</span><div class="cover-gal__grid">${[...stSel.options].map(op => {
-        const opts = { ...sec.opts, style: op.value };
-        const svg = withTemplateState({ settings: state.settings, sections: [{ type: 'cover', count: 1, opts }] }, () => { const pg = expand(); return pg.length ? exportPageSVG(pg, 0, 1) : ''; });
-        return `<button type="button" class="cover-gal__it${op.value === stSel.value ? ' on' : ''}" data-st="${esc(op.value)}" title="${esc(op.textContent)}"><span class="cover-gal__pg" data-ar="${(W / H).toFixed(4)}">${svg}</span><span class="cover-gal__nm">${esc(op.textContent.replace(/\s*\(.*\)$/, ''))}</span></button>`;
-      }).join('')}</div>`;
-      gal.querySelectorAll('.cover-gal__pg').forEach(e => { e.style.aspectRatio = e.dataset.ar; });
-      lab.hidden = true;
-      lab.after(gal);
-      gal.addEventListener('click', e => { const b = e.target.closest('[data-st]'); if (!b) return; gal.querySelectorAll('.cover-gal__it').forEach(x => x.classList.toggle('on', x === b)); stSel.value = b.dataset.st; stSel.dispatchEvent(new Event('change', { bubbles: true })); });
-    }
-    const typeRow = wrap.querySelector('label'); if (typeRow && typeRow.nextSibling) wrap.insertBefore(box, typeRow.nextSibling);
-    box.addEventListener('click', e => {
-      const b = e.target.closest('button'); if (!b) return;
-      if (b.dataset.sa === 'text' || b.dataset.sa === 'image') sheetAdd(b.dataset.sa);
-      else if (b.dataset.sa === 'reset') sheetResetAll();
-      else if (b.dataset.show) sheetShowHidden(b.dataset.show);
-    });
-  };
-}
+// ilustrações chegam sob demanda: redesenha quando uma categoria carrega
+let _sheetArtT = 0;
+EPArt.onLoad(() => { clearTimeout(_sheetArtT); _sheetArtT = setTimeout(() => { if (sheetsEl.children.length) { refreshWindow(true); sheetEditor.refresh(); } }, 30); });
 
 // o editor acompanha os redesenhos da prancheta
 {

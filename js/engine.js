@@ -77,6 +77,7 @@ function migrate(st) {
   s.safeMm = clamp(num(s.safeMm, 4), 0, 15);
   s.exportDPI = clamp(Math.round(num(s.exportDPI, 300)), 150, 600);
   s.showSafeGuide = !!s.showSafeGuide;
+  s.wm = cleanWatermark(s.wm);               // marca d'água (js/decor.js)
   s.labels = (s.labels && typeof s.labels === 'object' && !Array.isArray(s.labels)) ? s.labels : {};
   for (const k of Object.keys(s.labels)) {
     if (typeof s.labels[k] !== 'string') { delete s.labels[k]; continue; }
@@ -114,31 +115,9 @@ function migrate(st) {
     if (src.ink && HEX.test(src.ink)) sec.opts.ink = src.ink;
     if (src.breakBefore) sec.opts.breakBefore = true;
     if (typeof src.footer === 'string' && src.footer.trim()) sec.opts.footer = sanitizeText(src.footer, 80);
-    // edição na folha: ajustes por elemento e textos/imagens livres (validados — vêm de arquivo/localStorage)
-    if (src.el && typeof src.el === 'object') {
-      const el = {};
-      Object.keys(src.el).slice(0, 80).forEach(k => {
-        if (!/^(title|subtitle|owner|logo|monogram|year|text|author|x:[A-Za-z0-9_-]{1,24})$/.test(k)) return;
-        const e = src.el[k] && typeof src.el[k] === 'object' ? src.el[k] : {}, v = {};
-        ['dx', 'dy'].forEach(q => { if (e[q] != null && isFinite(+e[q])) v[q] = clamp(+e[q], -800, 800); });
-        if (e.s != null && isFinite(+e.s)) v.s = clamp(+e.s, 0.25, 5);
-        if (HEX.test(e.color || '')) v.color = e.color;
-        if (typeof e.fam === 'string' && /^[A-Za-z]{2,24}$/.test(e.fam)) v.fam = e.fam;
-        if (e.bold != null) v.bold = !!e.bold;
-        if (e.hide) v.hide = true;
-        el[k] = v;
-      });
-      sec.opts.el = el;
-    }
-    if (Array.isArray(src.extras)) {
-      sec.opts.extras = src.extras.slice(0, 40).map(x => {
-        x = x && typeof x === 'object' ? x : {};
-        const img = x.type === 'image';
-        return { id: /^[A-Za-z0-9_-]{1,24}$/.test(x.id || '') ? x.id : uid(), type: img ? 'image' : 'text',
-          text: img ? '' : sanitizeText(x.text || '', 400),
-          src: img && typeof x.src === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(x.src) && x.src.length < 5e6 ? x.src : '' };
-      }).filter(x => x.type === 'text' || x.src);
-    }
+    // edição na folha: ajustes por elemento e elementos livres (js/decor.js)
+    const el = cleanSheetEl(src.el); if (el) sec.opts.el = el;
+    const ex = cleanExtras(src.extras); if (ex) sec.opts.extras = ex;
     // página personalizada: valida/migra a grade de blocos (schema versionado)
     if (raw.type === 'custom') {
       sec.opts.layout = (typeof EPBlocks !== 'undefined')
@@ -527,16 +506,31 @@ function drawPageInto(pen, pd, idx, opt = {}) {
   const clipBox = isFull
     ? { x: -ctx.bleed, y: -ctx.bleed, w: W + 2 * ctx.bleed, h: H + 2 * ctx.bleed }
     : { x: box.x - CP, y: box.y - CP, w: box.w + 2 * CP, h: box.h + 2 * CP };
+  // marca d'água: por baixo de tudo, recortada na página
+  const wm = s.wm;
+  if (wm && wm.on && pd.type !== 'calibration' && (!isFull || wm.covers)) {
+    pen.clip(-ctx.bleed, -ctx.bleed, W + 2 * ctx.bleed, H + 2 * ctx.bleed);
+    drawWatermark(pen, W, H, ctx, wm);
+    pen.unclip();
+  }
   pen.clip(clipBox.x, clipBox.y, clipBox.w, clipBox.h);
   // guia de margem (só tela, opcional)
   if (opt.screen && s.showSafeGuide && !isFull) {
     pen.rect(box.x, box.y, box.w, box.h, { stroke: mixHex(s.accent, s.paperBg, 0.5), w: 0.15, dash: [1.4, 1.4] });
   }
   HEAD_FAM = ctx.hfam || 'sans';
+  // título do miolo editável na folha (quando é o título da seção, não um por página)
+  HEAD_EL = !isFull && o.title && !(pd.title != null && pd.title !== '') ? { o, ctx, done: false } : null;
   try { (PAGE_DRAW[pd.type] || PAGE_DRAW.blank)(pen, box, o, ctx); }
   catch (e) { console.error('draw ' + pd.type, e); }
-  HEAD_FAM = 'sans';
+  HEAD_FAM = 'sans'; HEAD_EL = null;
   pen.unclip();
+  // textos, imagens e ilustrações livres da seção — na página toda
+  if (Array.isArray(o.extras) && o.extras.length && pd.type !== 'calibration') {
+    pen.clip(-ctx.bleed, -ctx.bleed, W + 2 * ctx.bleed, H + 2 * ctx.bleed);
+    drawExtras(pen, o, ctx);
+    pen.unclip();
+  }
 
   // número de página + rodapé (fora do recorte, sempre alinhados à borda da
   // área útil e crescendo para dentro — nunca são cortados na margem).
@@ -626,7 +620,7 @@ function pageSig(idx, pd) {
     s.pageNumber, s.pageNumberStart, s.pageNumberSkip, s.pageNumberTotal, s.pageNumberPrefix, s.pageNumberSize,
     s.showPunch, s.showSafeGuide, s.highlightWeekends, s.footerText, s.headingFont,
     s.year, s.startDate, s.weekStart, s.customW, s.customH,
-    s.holUF, s.holNacional, s.holFacultativo, s.holComemorativa, s.events].join('|');
+    s.holUF, s.holNacional, s.holFacultativo, s.holComemorativa, s.events, cheapOptsSig({ wm: s.wm })].join('|');
 }
 function buildSVG(idx, pd, total) {
   const [W, H] = paperWH();

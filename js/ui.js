@@ -1092,52 +1092,8 @@ function pickNewImage(opts) {
   inp.click();
 }
 
-/* ============ edição inline: clique duplo na página (estilo Canva) ============ */
-let _inlineEl = null;
-function closeInlineEditor() { if (_inlineEl) { _inlineEl.remove(); _inlineEl = null; } }
-function inlineFields(T) {
-  return (T.fields || []).filter(f => (f.type === 'text' || f.type === 'textarea') && !['items', 'startDate'].includes(f.k));
-}
-function openInlineEditor(sec, pageEl) {
-  closeInlineEditor();
-  const T = PAGE_TYPES[sec.type], flds = inlineFields(T);
-  if (!flds.length) { toast('Esta página não tem texto pra editar aqui — use o painel à direita.'); return; }
-  const box = document.createElement('div');
-  box.className = 'inline-ed scrl';
-  box.innerHTML = `<div class="ie-h"><span>Editar: ${esc(T.label)}</span><button class="iconbtn ghost" data-x title="Fechar (Esc)">${iconSVG('x')}</button></div>`;
-  flds.forEach(f => {
-    const cur = sec.opts[f.k] != null ? sec.opts[f.k] : (f.def || '');
-    const id = 'ie_' + f.k;
-    box.insertAdjacentHTML('beforeend', f.type === 'textarea'
-      ? `<label>${esc(f.label)}<textarea id="${id}" rows="${f.rows || 4}">${esc(cur)}</textarea></label>`
-      : `<label>${esc(f.label)}<input type="text" id="${id}" maxlength="120" value="${esc(cur)}"></label>`);
-    const el = box.querySelector('#' + id);
-    el.addEventListener('input', () => {
-      const s = curSection(); if (!s) return;
-      s.opts[f.k] = sanitizeText(el.value, f.type === 'textarea' ? 4000 : 80);
-      clearTimeout(el._t); el._t = setTimeout(() => { rafRender(); save(); }, 120);
-    });
-    el.addEventListener('keydown', ev => { if (ev.key === 'Enter' && f.type !== 'textarea') { ev.preventDefault(); closeInlineEditor(); } });
-  });
-  box.querySelector('[data-x]').onclick = closeInlineEditor;
-  document.body.appendChild(box);
-  _inlineEl = box;
-  if (isMobile()) {
-    box.classList.add('ie-mobile');
-    const first = box.querySelector('input,textarea'); if (first) { first.focus(); if (first.select) first.select(); }
-    return;
-  }
-  const r = pageEl.getBoundingClientRect();
-  const w = Math.round(Math.min(340, Math.max(240, r.width * 0.82)));
-  box.style.width = w + 'px';
-  box.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.left + (r.width - w) / 2)) + 'px';
-  box.style.top = Math.max(54, Math.min(innerHeight - box.offsetHeight - 12, r.top + 16)) + 'px';
-  const first = box.querySelector('input,textarea'); if (first) { first.focus(); if (first.select) first.select(); }
-}
-document.addEventListener('pointerdown', e => {
-  if (_inlineEl && !_inlineEl.contains(e.target) && !(e.target.closest && e.target.closest('.page'))) closeInlineEditor();
-}, true);
-addEventListener('keydown', e => { if (e.key === 'Escape') closeInlineEditor(); });
+/* edição de texto: direto na folha (js/sheet-edit.js + vendor/core/canvas-edit*.js) */
+function closeInlineEditor() { if (typeof EPCanvasEditText !== 'undefined') EPCanvasEditText.close(); }
 
 /* ================= eventos globais ================= */
 function bindGlobal() {
@@ -1152,47 +1108,18 @@ function bindGlobal() {
   const pageAt = t => { const pg = t.closest && t.closest('.page'); if (!pg) return null;
     const i = [...sheetsEl.children].indexOf(pg); const pages = expand();
     return pages[i] ? { pg, sec: state.sections.find(s => s.id === pages[i].sectionId) } : null; };
-  let _mTapPg = null, _mTapT = 0;
+  // tocar/clicar numa página seleciona a seção e mostra os elementos editáveis;
+  // tocar num elemento seleciona; tocar de novo (ou clique duplo) digita ali mesmo
   sheetsEl.addEventListener('click', e => {
-    if (_inlineEl && _inlineEl.contains(e.target)) return;
-    const hit = pageAt(e.target); if (!hit || !hit.sec) { _mTapPg = null; return; }
-    const hitPd = expand()[+hit.pg.dataset.idx];
-    const editable = hitPd && typeof SHEET_EDITABLE !== 'undefined' && SHEET_EDITABLE[hitPd.type];
-    if (!isMobile()) {
-      if (hit.sec.id !== selId) selectSection(hit.sec.id, { noScroll: true });
-      if (editable) { closeInlineEditor(); if (!sheetEditor.pick(hit.pg, e.clientX, e.clientY)) sheetEditor.show(hit.pg); }
-      return;
-    }
-    // celular: capa, divisória e frase editam direto na folha (toque no elemento)
-    if (editable) {
-      if (hit.sec.id !== selId) selectSection(hit.sec.id, { noScroll: true, fromPage: true });
-      if (!sheetEditor.pick(hit.pg, e.clientX, e.clientY)) sheetEditor.show(hit.pg);
-      return;
-    }
-    // celular, estilo Canva: tocar numa página que JÁ está selecionada abre o
-    // editor de texto ali mesmo; tocar numa página de outra seção só seleciona
-    // (o 2º toque então edita).
-    const already = hit.sec.id === selId;
-    if (already || _mTapPg === hit.pg) {
-      _mTapPg = null;
-      if (inlineFields(PAGE_TYPES[hit.sec.type]).length) openInlineEditor(hit.sec, hit.pg);
-      else if (typeof mOpenTab === 'function') mOpenTab('secao');
-      return;
-    }
-    _mTapPg = hit.pg;
-    clearTimeout(_mTapT); _mTapT = setTimeout(() => { _mTapPg = null; }, 2500);
-    if (!already) selectSection(hit.sec.id, { noScroll: true, fromPage: true });
+    const hit = pageAt(e.target); if (!hit || !hit.sec) return;
+    if (hit.sec.id !== selId) selectSection(hit.sec.id, { noScroll: true, fromPage: isMobile() });
+    if (!sheetPageInfo(hit.pg)) { sheetEditor.clear(); return; }
+    if (!sheetEditor.pick(hit.pg, e.clientX, e.clientY)) sheetEditor.show(hit.pg);
   });
   sheetsEl.addEventListener('dblclick', e => {
-    if (isMobile()) return;   // no celular quem cuida disso é o handler de "click" (2 toques)
-    const hit = pageAt(e.target); if (!hit || !hit.sec) return;
-    const pd = expand()[+hit.pg.dataset.idx];
-    if (pd && typeof SHEET_EDITABLE !== 'undefined' && SHEET_EDITABLE[pd.type]) {
-      // já selecionado pelo clique: duplo clique leva o cursor pro texto
-      if (sheetEditor.pick(hit.pg, e.clientX, e.clientY)) { const t = document.querySelector('.ce-bar .ce-text'); if (t) { t.focus(); t.select && t.select(); } }
-      return;
-    }
-    e.preventDefault(); selectSection(hit.sec.id, { noScroll: true }); openInlineEditor(hit.sec, hit.pg);
+    if (isMobile()) return;
+    const hit = pageAt(e.target); if (!hit || !hit.sec || !sheetPageInfo(hit.pg)) return;
+    if (sheetEditor.pick(hit.pg, e.clientX, e.clientY)) { e.preventDefault(); sheetEditor.editText(); }
   });
   stage.addEventListener('wheel', e => { if (!(e.ctrlKey || e.metaKey)) return; e.preventDefault(); zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0016)); }, { passive: false });
   let _pan = null;
@@ -1209,7 +1136,7 @@ function bindGlobal() {
     const n = pageCount(); if (n < 2) return;
     const mid = stage.scrollTop + stage.clientHeight / 2;
     let best = 0, bd = 1e9;
-    [...sheetsEl.children].forEach((pg, i) => { const c = pg.offsetTop * zoom + pg.offsetHeight * zoom / 2; const d = Math.abs(c - mid); if (d < bd) { bd = d; best = i; } });
+    [...sheetsEl.children].forEach((pg, i) => { if (pg.hidden) return; const c = pg.offsetTop * zoom + pg.offsetHeight * zoom / 2; const d = Math.abs(c - mid); if (d < bd) { bd = d; best = i; } });
     if (best !== currentPage) {
       currentPage = best;
       $('#pageLbl').textContent = `${best + 1} / ${n}`;

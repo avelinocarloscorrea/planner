@@ -191,6 +191,7 @@ function exportSelection() {
 }
 async function exportPDF() {
   const sel = exportSelection();
+  if (typeof EPArt !== 'undefined') await EPArt.ensure(usedArtIds(state));   // ilustrações do catálogo
   if (!sel.length) { toast(state.settings.exportPart === 'cover' ? 'O documento não tem capa.' : 'Adicione ao menos uma seção.'); return; }
   const pages = expand();
   if (typeof resetPdfImages === 'function') resetPdfImages();
@@ -225,6 +226,7 @@ async function exportPDF() {
 
 async function exportPNG() {
   const pages = expand();
+  if (typeof EPArt !== 'undefined') await EPArt.ensure(usedArtIds(state));
   if (!pages.length) { toast('Adicione ao menos uma seção.'); return; }
   const i = clamp(currentPage, 0, pages.length - 1);
   busy('Gerando PNG da página ' + (i + 1) + '…');
@@ -301,6 +303,7 @@ function printPageSizeCss(plan, eff) {
 }
 
 async function printDoc() {
+  if (typeof EPArt !== 'undefined') await EPArt.ensure(usedArtIds(state));
   const pages = expand();
   if (!pages.length) { toast('Adicione ao menos uma seção.'); return; }
   const s = state.settings, [W, H] = paperWH();

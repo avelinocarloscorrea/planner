@@ -176,14 +176,6 @@
   .typemenu.tm-sheet .tm-lb{font-size:12.5px}
 
   /* editor de texto na página (estilo Canva) */
-  .inline-ed.ie-mobile{position:fixed!important;left:0!important;right:0!important;bottom:0!important;
-    top:auto!important;width:auto!important;max-width:none;max-height:76vh;
-    border-radius:18px 18px 0 0;border:0;border-top:2px solid var(--brand);box-shadow:var(--sh-pop);
-    padding:12px 15px calc(18px + env(safe-area-inset-bottom));z-index:90;animation:mSheetUp .18s ease}
-  .inline-ed.ie-mobile textarea{min-height:130px;font-size:16px}
-  .inline-ed.ie-mobile input[type=text]{min-height:48px;font-size:16px}
-  .inline-ed.ie-mobile .ie-h{font-size:13px}
-  .inline-ed.ie-mobile .ie-h .iconbtn{width:36px;height:36px;padding:7px}
 
   .mob-only{display:block}
   .desk-only{display:none}
