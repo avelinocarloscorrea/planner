@@ -25,6 +25,7 @@ function migrate(st) {
   s.customH = clamp(num(s.customH, 210), 40, 700);
   ['marginTop', 'marginBottom', 'marginInner', 'marginOuter'].forEach(k => s[k] = clamp(num(s[k], 10), 0, 60));
   s.mirrorMargins = s.mirrorMargins !== false;
+  s.acrylic = s.acrylic !== false;
   s.bleedMm = clamp(num(s.bleedMm, 0), 0, 10);
   s.cropMarks = !!s.cropMarks;
   s.registration = !!s.registration;
@@ -408,6 +409,7 @@ function drawPageInto(pen, pd, idx, opt = {}) {
   // título por página (vindo de "um item por linha") sobrepõe o da seção
   if (pd.title != null && pd.title !== '') o.title = pd.title;
   const ctx = pageCtx({ ...pd, pageIndexGlobal: idx });
+  ctx.pageW = W; ctx.pageH = H; ctx.bleed = Math.max(0, +opt.bleed || 0);
   // Capa e divisória usam uma caixa CENTRADA na página (ignoram o desvio da
   // lombada), pra não ficarem tortas. Os demais tipos usam a área útil real.
   const isFull = pd.type === 'cover' || pd.type === 'tab';
@@ -432,8 +434,10 @@ function drawPageInto(pen, pd, idx, opt = {}) {
   // folga de 0,5 mm no recorte da área útil: molduras e as linhas de tabela que
   // encostam na borda da caixa não saem cortadas ao meio (some contra a margem).
   const CP = 0.5;
+  // capa/divisória: recorte na página inteira (+ sangria no modo gráfica),
+  // pra fundos de cor e imagem chegarem até a borda do corte.
   const clipBox = isFull
-    ? { x: 2, y: 2, w: W - 4, h: H - 4 }
+    ? { x: -ctx.bleed, y: -ctx.bleed, w: W + 2 * ctx.bleed, h: H + 2 * ctx.bleed }
     : { x: box.x - CP, y: box.y - CP, w: box.w + 2 * CP, h: box.h + 2 * CP };
   pen.clip(clipBox.x, clipBox.y, clipBox.w, clipBox.h);
   // guia de margem (só tela, opcional)
@@ -570,8 +574,8 @@ function render() {
   refreshWindow(true);
   applyZoom();
   const sec = curSection();
-  $('#stat').textContent = `${state.sections.length} seção(ões) · ${pages.length} página(s) · ${W.toFixed(0)}×${H.toFixed(0)} mm`
-    + (sec ? ` · seção: ${PAGE_TYPES[sec.type].label}` : '');
+  { const ps = PAGE_SIZES[s.paper]; const pl = s.paper === 'custom' ? `${W.toFixed(0)}×${H.toFixed(0)} mm` : (ps ? ps.label.split(' — ')[0].replace(/\s*\(.*\)$/, '') : '');
+    $('#stat').textContent = `${pl}${s.landscape ? ' deitado' : ''} · ${pages.length} ${pages.length === 1 ? 'página' : 'páginas'}`; }
   $('#pageLbl').textContent = `${currentPage + 1} / ${Math.max(1, pages.length)}`;
   { const mpg = $('#mpg'); if (mpg) mpg.textContent = pages.length > 1 ? `Pág. ${currentPage + 1}/${pages.length}` : ''; }
   renderSectionList();
@@ -630,7 +634,7 @@ function selectSection(id, opts = {}) {
 }
 
 /* ================= zoom / navegação ================= */
-function applyZoom() { sheetsEl.style.zoom = zoom; $('#zval').textContent = Math.round(zoom * 100) + '%'; }
+function applyZoom() { sheetsEl.style.zoom = zoom; const zi = $('#zval'); if (zi && document.activeElement !== zi) zi.value = Math.round(zoom * 100); }
 function fit() {
   const [W, H] = paperWH();
   const cs = getComputedStyle(stage);
@@ -660,12 +664,19 @@ function gotoPage(i) {
 
 /* ================= histórico ================= */
 let past = [], future = [], lastKey = '', lastTime = 0;
+// histMeta é paralelo a `past` (mesmo índice, mesmo tamanho) — só a hora de
+// cada passo, pra desenhar o histórico visual (openHistoryPop) sem duplicar
+// o snapshot inteiro nem mudar a forma de `past`/`future` que undo()/redo()
+// já usam.
+let histMeta = [];
 const snap = () => JSON.stringify(state);
 function pushHistory(key) {
   const now = Date.now();
   if (key && key === lastKey && now - lastTime < 600) { lastTime = now; return; }
   lastKey = key || ''; lastTime = now;
-  past.push(snap()); if (past.length > 60) past.shift(); future.length = 0;
+  past.push(snap()); histMeta.push({ t: now });
+  if (past.length > 60) { past.shift(); histMeta.shift(); }
+  future.length = 0;
   updateHistoryButtons();
 }
 function applySnap(str) {
@@ -674,8 +685,19 @@ function applySnap(str) {
   svgCache.clear();
   syncDocControls(); render(); save();
 }
-function undo() { if (!past.length) return; future.push(snap()); applySnap(past.pop()); toast('Desfeito'); }
-function redo() { if (!future.length) return; past.push(snap()); applySnap(future.pop()); }
+function undo() { if (!past.length) return; future.push(snap()); applySnap(past.pop()); histMeta.pop(); toast('Desfeito'); }
+function redo() { if (!future.length) return; past.push(snap()); histMeta.push({ t: Date.now() }); applySnap(future.pop()); }
+// Volta N passos de uma vez (histórico visual) — os passos intermediários
+// vão pro `future` na ordem certa, então redo() continua funcionando normal
+// depois de um salto de vários passos.
+function undoTo(n) {
+  if (n < 1 || n > past.length) return;
+  future.push(snap());
+  let target;
+  for (let i = 0; i < n; i++) { target = past.pop(); histMeta.pop(); if (i < n - 1) future.push(target); }
+  applySnap(target);
+  toast(n > 1 ? `Voltou ${n} passos.` : 'Desfeito');
+}
 function updateHistoryButtons() {
   const set = (id, on) => { const e = $(id); if (e) e.disabled = !on; };
   set('#b_undo', past.length); set('#b_redo', future.length);
@@ -735,6 +757,30 @@ function dupSection(id) {
   });
   selectSection(selId);
 }
+// "Duplicar esta página específica" — achado da auditoria: só existia
+// duplicar a SEÇÃO inteira. Como cada página dentro de uma seção já é gerada
+// proceduralmente (mesmo tipo/opções — não há conteúdo próprio por página,
+// exceto quando "opts.items" já define um título por linha), "duplicar a
+// página atual" na prática é "esta seção ganha +1 página" — sem precisar
+// achar a seção na lista e mexer no controle de quantidade lá.
+function dupCurrentPage() {
+  const p = expand()[currentPage];
+  if (!p || !p.sectionId || p.filler) { toast('Esta página não pertence a uma seção que aceite duplicar.'); return; }
+  const sec = state.sections.find(s => s.id === p.sectionId);
+  const T = sec && PAGE_TYPES[sec.type];
+  // "items" (um título por linha) e páginas DATADAS (dia/semana/mês — p.date
+  // não nulo) não têm uma página igual à outra: incrementar count não copia
+  // a página vista, só acrescenta a próxima data em sequência no fim da
+  // seção — achado de correção, não é "duplicar", é outra coisa.
+  if (!sec || !T || !T.repeat || /\S/.test(sec.opts.items || '') || p.date != null) { toast('Este tipo de página não aceita duplicar individualmente.'); return; }
+  if (sec.count >= 1000) { toast('Esta seção já está no limite de 1000 páginas.'); return; }
+  mutate('dupPage', () => { sec.count = clamp(sec.count + 1, 1, 1000); });
+  const pages = expand();
+  let last = currentPage;
+  for (let i = 0; i < pages.length; i++) if (pages[i].sectionId === sec.id) last = i;
+  gotoPage(last);
+  toast('Página duplicada.');
+}
 function moveSection(id, dir) {
   const i = state.sections.findIndex(s => s.id === id), j = i + dir;
   if (i < 0 || j < 0 || j >= state.sections.length) return;
@@ -757,6 +803,6 @@ function setSectionOpt(id, k, v) {
 function newDoc(preset) {
   state = migrate({ settings: { ...DEFAULTS, ...(preset && preset.settings || {}) }, sections: (preset && preset.sections || []) });
   selId = state.sections[0] ? state.sections[0].id : null;
-  past = []; future = []; svgCache.clear(); currentPage = 0;
+  past = []; future = []; histMeta = []; svgCache.clear(); currentPage = 0;
   syncDocControls(); render(); save(); fit();
 }

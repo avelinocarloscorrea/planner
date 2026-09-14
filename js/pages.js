@@ -49,6 +49,13 @@ function heading(pen, str, x, y, maxW, startPt, minPt, o) {
 }
 // EDGE: recuo mínimo pra nenhum ponto/linha do padrão ficar em cima do recorte
 // (era o que dava a impressão de "linha cortada"). O padrão é sempre centrado.
+// uma linha de texto que nunca passa de maxW: corta com reticências
+function clipLine(pen, str, maxW, size, bold) {
+  let t = String(str || '');
+  if (pen.textWidth(t, size, !!bold) <= maxW) return t;
+  while (t.length > 1 && pen.textWidth(t + '…', size, !!bold) > maxW) t = t.slice(0, -1);
+  return t.trimEnd() + '…';
+}
 const EDGE = 0.6;
 function fitCells(len, step) {
   const n = Math.max(1, Math.floor((len - 2 * EDGE) / step));
@@ -345,35 +352,167 @@ function monogramOf(name) {
   return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
 }
 PAGE_DRAW.cover = (pen, box, o, ctx) => {
+  const S = ctx.S, paper = S.paperBg;
   const W = box.w, H = box.h, cx = box.x + W / 2;
+  const PW = ctx.pageW || (box.x * 2 + W), PH = ctx.pageH || (box.y * 2 + H), bl = ctx.bleed || 0;
+  const full = { x: -bl, y: -bl, w: PW + 2 * bl, h: PH + 2 * bl };
   const inset = Math.max(6, Math.min(W, H) * 0.06);
-  const style = o.style || 'border';
-  const soft = mixHex(ctx.ink, ctx.S.paperBg, 0.45);
-  const accentSoft = mixHex(ctx.accent, ctx.S.paperBg, 0.86);
-  const titleCol = o.accentTitle ? ctx.accent : ctx.ink;
+  const style = o.style || 'modern';
+  const fam = ctx.hfam || 'sans';
+  const heavy = fam !== 'serif';                       // serifada fica elegante em peso normal
+  const dark = style === 'solid';
+  const soft = mixHex(ctx.ink, paper, 0.45);
+  const accentSoft = mixHex(ctx.accent, paper, 0.86);
+  const fg = dark ? paper : (o.accentTitle ? ctx.accent : ctx.ink);
+  const fgFaint = dark ? mixHex(paper, ctx.ink, 0.38) : ctx.faint;
+  const acc = dark ? mixHex(ctx.accent, paper, 0.3) : ctx.accent;
+  const title = String(o.title || 'Meu planner');
+  const sub = String(o.subtitle || '').trim();
+  const posFrac = o.titlePos === 'top' ? 0.27 : o.titlePos === 'bottom' ? 0.64 : null;
 
-  // imagem de fundo (sangra até quase a borda da página) + véu de legibilidade
+  // texto espaçado (tracking) com centralização correta nas duas canetas
+  const spaced = (str, x, y, size, color, align, trk, extra = {}) => {
+    str = String(str); if (!str) return;
+    const w = pen.textWidth(str, size, extra.font === 'bold', extra.family) + Math.max(0, str.length - 1) * trk;
+    const lx = align === 'c' ? x - w / 2 : align === 'r' ? x - w : x;
+    pen.text(str, lx, y, { size, color, align: 'l', tracking: trk, baseline: extra.baseline || 'middle', font: extra.font, family: extra.family });
+  };
+  // bloco do título: maior tamanho com até `maxLines` linhas cabendo em maxW
+  const titleFit = (maxW, startPt, minPt, maxLines) => {
+    let size = startPt, lines = [title];
+    for (let guard = 0; guard < 80; guard++) {
+      lines = pen.wrapText(title, maxW, size, heavy, 0, fam);
+      const widest = Math.max(...lines.map(l => pen.textWidth(l, size, heavy, fam)));
+      if ((lines.length <= maxLines && widest <= maxW * (fam === 'sans' ? 0.97 : 0.92)) || size <= minPt) break;
+      size -= 1;
+    }
+    if (lines.length > maxLines) lines = pen.wrapText(title, maxW, size, heavy, maxLines, fam);
+    return { size, lines, lh: size * (fam === 'serif' ? 1.08 : 1.12) / PT };
+  };
+  const drawTitle = (t, x, yTop, align, color) => {
+    let y = yTop + t.lh / 2;
+    t.lines.forEach(l => { pen.text(l, x, y, { size: t.size, font: heavy ? 'bold' : undefined, color, align, baseline: 'middle', family: fam }); y += t.lh; });
+    return yTop + t.lines.length * t.lh;
+  };
+  const ownerLine = (x, y, align, w, color, lineCol) => {
+    if (o.showOwner === false) return;
+    spaced(ctx.L('pertenceA').toUpperCase(), x, y, 7.5, color, align, 1);
+    if (o.owner) pen.text(String(o.owner), x, y + 6.5, { size: 12, font: 'it', color: dark ? paper : ctx.ink, align, baseline: 'top', family: fam === 'mono' ? 'mono' : 'serif' });
+    else {
+      const x0 = align === 'c' ? x - w / 2 : align === 'r' ? x - w : x;
+      pen.line(x0, y + 11, x0 + w, y + 11, { w: 0.3, color: lineCol || ctx.hair });
+    }
+  };
+
+  // ---------- fundo sólido / imagem ----------
+  if (dark) pen.rect(full.x, full.y, full.w, full.h, { fill: ctx.ink });
   if (o.bg && pen.image) {
-    const pxL = 2, pxT = 2;
-    const pgW = box.w + 2 * Math.max(0, box.x - pxL), pgH = box.h + 2 * Math.max(0, box.y - pxT);
-    pen.image(o.bg, pxL, pxT, pgW, pgH, { fit: 'cover' });
+    pen.image(o.bg, full.x, full.y, full.w, full.h, { fit: 'cover' });
     const dim = clamp(+o.bgDim || 0, 0, 0.85);
-    if (dim > 0.001) pen.rect(pxL, pxT, pgW, pgH, { fill: ctx.S.paperBg, fillOpacity: dim });
+    if (dim > 0.001) pen.rect(full.x, full.y, full.w, full.h, { fill: dark ? ctx.ink : paper, fillOpacity: dim });
   }
-  // logo (imagem) — posicionada conforme logoPos
-  if (o.logo && pen.image) {
+  // ---------- logo ----------
+  const drawLogo = (defaultY) => {
+    if (!(o.logo && pen.image)) return;
     const scl = clamp(+o.logoScale || 24, 6, 70) / 100;
-    const lw = W * scl, lh = lw;   // caixa quadrada; a imagem entra com "meet"
-    const lx = (o.logoPos === 'foot' && style === 'left') ? box.x + inset + 8 : cx - lw / 2;
-    let ly;
+    const lw = W * scl, lh = lw;
+    let ly = defaultY - lh - 6;
     if (o.logoPos === 'top') ly = box.y + inset + 3;
     else if (o.logoPos === 'foot') ly = box.y + H - inset - lh - 2;
-    else if (o.logoPos === 'below') ly = box.y + H * ((o.titlePos === 'bottom' ? 0.66 : 0.40)) + 14;
-    else ly = box.y + H * ((o.titlePos === 'top' ? 0.26 : o.titlePos === 'bottom' ? 0.66 : 0.40)) - lh - 8; // above (padrão)
-    pen.image(o.logo, lx, Math.max(box.y + 2, ly), lw, lh, { fit: 'meet' });
+    else if (o.logoPos === 'below') ly = defaultY + 8;
+    const leftAl = ['modern', 'split', 'left'].includes(style);
+    pen.image(o.logo, leftAl ? box.x + inset : cx - lw / 2, Math.max(box.y + 2, ly), lw, lh, { fit: 'meet' });
+  };
+  const monogram = (y) => {
+    if (!o.monogram || o.logo) return false;
+    const mg = monogramOf(o.owner) || monogramOf(o.title); if (!mg) return false;
+    const r = Math.min(12, W * 0.085);
+    pen.circle(cx, y, r, { stroke: acc, w: 0.45 });
+    pen.text(mg, cx, y, { size: r * 1.15, color: fg, align: 'c', baseline: 'middle', family: 'serif' });
+    return true;
+  };
+
+  // ======================= estilos novos =======================
+  if (style === 'modern') {
+    const x = box.x + inset, maxW = W - 2 * inset;
+    const t = titleFit(maxW, Math.min(58, W * 0.36), 16, 3);
+    const top = box.y + H * (posFrac != null ? posFrac : 0.46) - t.lines.length * t.lh / 2;
+    if (sub) spaced(sub.toUpperCase(), x, top - 8, 10, ctx.accent, 'l', 1.8);
+    drawLogo(sub ? top - 12 : top);
+    const end = drawTitle(t, x, top, 'l', fg);
+    pen.rect(x, end + 5, Math.min(22, maxW * 0.2), 0.9, { fill: ctx.accent });
+    pen.line(box.x + inset, box.y + inset, box.x + W - inset, box.y + inset, { w: 0.25, color: ctx.hair });
+    ownerLine(x, box.y + H - inset - 16, 'l', Math.min(64, maxW * 0.62));
+    return;
+  }
+  if (style === 'solid') {
+    const fr = inset * 0.8;
+    pen.rect(box.x + fr, box.y + fr, W - 2 * fr, H - 2 * fr, { stroke: mixHex(ctx.accent, ctx.ink, 0.25), w: 0.45 });
+    pen.rect(box.x + fr + 1.8, box.y + fr + 1.8, W - 2 * fr - 3.6, H - 2 * fr - 3.6, { stroke: mixHex(ctx.accent, ctx.ink, 0.6), w: 0.25 });
+    const maxW = W - 2 * inset - 14;
+    const t = titleFit(maxW, Math.min(44, W * 0.27), 14, 3);
+    const mid = box.y + H * (posFrac != null ? posFrac : 0.44);
+    const top = mid - t.lines.length * t.lh / 2;
+    const hasMg = monogram(top - 20);
+    drawLogo(hasMg ? top - 34 : top);
+    const end = drawTitle(t, cx, top, 'c', fg);
+    if (sub) {
+      pen.line(cx - 7, end + 5, cx + 7, end + 5, { w: 0.4, color: acc });
+      spaced(sub.toUpperCase(), cx, end + 12, 10, acc, 'c', 2.2);
+    }
+    ownerLine(cx, box.y + H - inset - 20, 'c', Math.min(56, W * 0.46), fgFaint, mixHex(paper, ctx.ink, 0.55));
+    return;
+  }
+  if (style === 'split') {
+    const cut = PH * 0.6;
+    pen.rect(full.x, full.y, full.w, cut - full.y, { fill: mixHex(ctx.accent, paper, 0.8) });
+    pen.rect(full.x, cut - 0.6, full.w, 1.2, { fill: ctx.accent });
+    const x = box.x + inset, maxW = W - 2 * inset;
+    const t = titleFit(maxW, Math.min(52, W * 0.32), 15, 3);
+    const top = cut - 11 - t.lines.length * t.lh;
+    if (sub) spaced(sub.toUpperCase(), x, top - 8, 10, mixHex(ctx.ink, ctx.accent, 0.35), 'l', 1.8);
+    drawLogo(box.y + inset + 40);
+    drawTitle(t, x, top, 'l', ctx.ink);
+    ownerLine(x, cut + (PH - cut) * 0.42, 'l', Math.min(70, maxW * 0.7));
+    return;
+  }
+  if (style === 'year') {
+    const big = sub || String(S.year || '');
+    const maxW = W - 2 * inset - 4;
+    const bigSize = pen.fitText(big, maxW, Math.min(150, W * 0.9), 20, true, 'sans');
+    const bigY = box.y + H * 0.36;
+    pen.text(big, cx, bigY, { size: bigSize, font: 'bold', color: mixHex(ctx.accent, paper, 0.55), align: 'c', baseline: 'middle', family: 'sans' });
+    const t = titleFit(maxW, Math.min(30, W * 0.2), 12, 2);
+    const top = bigY + bigSize * 0.42 / PT + 6;
+    const end = drawTitle(t, cx, top, 'c', fg);
+    pen.line(cx - 10, end + 5, cx + 10, end + 5, { w: 0.5, color: ctx.accent });
+    drawLogo(box.y + inset + 30);
+    ownerLine(cx, box.y + H - inset - 18, 'c', Math.min(56, W * 0.45));
+    return;
+  }
+  if (style === 'arch') {
+    const aw = Math.min(W * 0.72, 118), ah = Math.min(H * 0.62, aw * 1.55);
+    const ax0 = cx - aw / 2, top = box.y + H * 0.14, r = aw / 2, base = top + ah;
+    const arch = (off, col, w) => {
+      const rr = r - off, x0 = cx - rr, x1 = cx + rr, yc = top + r, yb = base - off;
+      pen.line(x0, yc, x0, yb, { w, color: col }); pen.line(x1, yc, x1, yb, { w, color: col });
+      pen.line(x0, yb, x1, yb, { w, color: col });
+      const N = 48; let px = x0, py = yc;
+      for (let i = 1; i <= N; i++) { const a = Math.PI + Math.PI * i / N; const nx = cx + rr * Math.cos(a), ny = yc + rr * Math.sin(a); pen.line(px, py, nx, ny, { w, color: col, cap: 'round' }); px = nx; py = ny; }
+    };
+    arch(0, ctx.accent, 0.5); arch(2.2, mixHex(ctx.accent, paper, 0.5), 0.25);
+    const maxW = aw - 16;
+    const t = titleFit(maxW, Math.min(34, aw * 0.26), 12, 3);
+    const mid = top + r + (ah - r) * 0.42;
+    const tTop = mid - t.lines.length * t.lh / 2;
+    if (!monogram(top + r * 0.62)) drawLogo(tTop - 4);
+    const end = drawTitle(t, cx, tTop, 'c', fg);
+    if (sub) spaced(sub.toUpperCase(), cx, end + 7, 9.5, ctx.accent, 'c', 2);
+    ownerLine(cx, Math.min(box.y + H - inset - 14, base + 12), 'c', Math.min(56, W * 0.45));
+    return;
   }
 
-  // molduras / fundos
+  // ======================= estilos clássicos =======================
   if (style === 'border') pen.rect(box.x + inset, box.y + inset, W - 2 * inset, H - 2 * inset, { stroke: soft, w: 0.4 });
   else if (style === 'frameDouble') {
     pen.rect(box.x + inset, box.y + inset, W - 2 * inset, H - 2 * inset, { stroke: ctx.ink, w: 0.5 });
@@ -389,40 +528,19 @@ PAGE_DRAW.cover = (pen, box, o, ctx) => {
   const align = editorial ? 'l' : 'c';
   const ax = editorial ? box.x + inset + 8 : cx;
   const maxW = editorial ? W - inset - 8 - inset : W - 2 * inset - 12;
-  const title = String(o.title || 'Meu planner');
-  const size = pen.fitText(title, maxW, Math.min(editorial ? 30 : 34, W * (editorial ? 0.14 : 0.16)), 14, true, ctx.hfam);
-  const lines = pen.wrapText(title, maxW, size, true, 4, ctx.hfam);
-  const lh = size * 1.18 / PT, blockH = lines.length * lh;
-  const posFrac = o.titlePos === 'top' ? 0.26 : o.titlePos === 'bottom' ? 0.66 : (style === 'stack' ? 0.30 : 0.40);
-  const midY = box.y + H * posFrac;
-
-  if (style === 'band') pen.rect(box.x + inset, midY - blockH / 2 - 5, W - 2 * inset, blockH + 10, { fill: accentSoft });
+  const t = titleFit(maxW, Math.min(editorial ? 40 : 38, W * (editorial ? 0.26 : 0.24)), 13, 3);
+  const blockH = t.lines.length * t.lh;
+  const midY = box.y + H * (posFrac != null ? posFrac : (style === 'stack' ? 0.30 : 0.40));
+  if (style === 'band') pen.rect(box.x + inset, midY - blockH / 2 - 6, W - 2 * inset, blockH + 12, { fill: accentSoft });
   if (style === 'rule') {
-    pen.line(cx - maxW * 0.32, midY - blockH / 2 - 5, cx + maxW * 0.32, midY - blockH / 2 - 5, { w: 0.5, color: ctx.accent });
-    pen.line(cx - maxW * 0.32, midY + blockH / 2 + 5, cx + maxW * 0.32, midY + blockH / 2 + 5, { w: 0.5, color: ctx.accent });
+    pen.line(cx - maxW * 0.32, midY - blockH / 2 - 6, cx + maxW * 0.32, midY - blockH / 2 - 6, { w: 0.5, color: ctx.accent });
+    pen.line(cx - maxW * 0.32, midY + blockH / 2 + 6, cx + maxW * 0.32, midY + blockH / 2 + 6, { w: 0.5, color: ctx.accent });
   }
-
-  // monograma (só se não houver logo)
-  if (o.monogram && !o.logo) {
-    const mg = monogramOf(o.owner) || monogramOf(o.title);
-    if (mg) {
-      const my = box.y + H * (o.titlePos === 'top' ? 0.5 : 0.20), r = Math.min(13, W * 0.09);
-      pen.circle(cx, my, r, { stroke: ctx.accent, w: 0.5 });
-      pen.text(mg, cx, my, { size: r * 1.1, font: 'bold', color: ctx.ink, align: 'c', baseline: 'middle', family: ctx.hfam });
-    }
-  }
-
-  let ty = midY - (lines.length - 1) * lh / 2;
-  lines.forEach(l => { pen.text(l, ax, ty, { size, font: 'bold', color: titleCol, align, baseline: 'middle', family: ctx.hfam }); ty += lh; });
-  if (o.subtitle) pen.text(String(o.subtitle), ax, midY + blockH / 2 + (style === 'band' ? 10 : 6), { size: Math.min(13, size * 0.42), color: ctx.accent, align, tracking: 1, baseline: 'top' });
-  if (o.showOwner !== false && !o.monogram) {
-    const oy = box.y + H * (o.titlePos === 'bottom' ? 0.86 : 0.72);
-    pen.text(ctx.L('pertenceA'), ax, oy, { size: 8, color: ctx.faint, align, tracking: 0.6 });
-    if (o.owner) pen.text(String(o.owner), ax, oy + 8, { size: 12, font: 'it', color: ctx.ink, align, baseline: 'top', family: ctx.hfam });
-    else pen.line(editorial ? ax : cx - Math.min(45, W * 0.32), oy + 8, editorial ? ax + Math.min(60, maxW * 0.6) : cx + Math.min(45, W * 0.32), oy + 8, { w: 0.3, color: ctx.hair });
-  } else if (o.showOwner !== false && o.owner) {
-    pen.text(String(o.owner), ax, box.y + H * 0.88, { size: 10, color: ctx.faint, align, tracking: 0.5 });
-  }
+  const hasMg = monogram(box.y + H * (o.titlePos === 'top' ? 0.5 : 0.2));
+  if (!hasMg) drawLogo(midY - blockH / 2);
+  drawTitle(t, ax, midY - blockH / 2, align, fg);
+  if (sub) spaced(sub.toUpperCase(), ax, midY + blockH / 2 + (style === 'band' || style === 'rule' ? 12 : 8), Math.min(11, Math.max(8.5, t.size * 0.34)), ctx.accent, align, 1.8);
+  ownerLine(ax, box.y + H * (o.titlePos === 'bottom' ? 0.84 : 0.74), align, editorial ? Math.min(60, maxW * 0.6) : Math.min(56, W * 0.46));
 };
 
 PAGE_DRAW.tab = (pen, box, o, ctx) => {
@@ -645,8 +763,13 @@ function calGrid(pen, x, y, w, h, d, ws, ctx, opts = {}) {
     pen.text(String(day), gx + c * cw + (opts.small ? cw / 2 : 1.8), y + headH + r * chh + (opts.small ? 0.5 : 1.4),
       { size: opts.small ? 3.6 : 8, font: opts.small ? 'reg' : 'bold', color: wkCol(ctx, dow[c]), align: opts.small ? 'c' : 'l', baseline: 'top' });
     if (ev && ev[day]) {
-      const lines = pen.wrapText(ev[day], cw - 2.6, 4.6, false, 2);
-      lines.forEach((ln, li) => pen.text(ln, gx + c * cw + 1.6, y + headH + r * chh + 6 + li * 4.4, { size: 4.6, color: ctx.accent, baseline: 'top' }));
+      // palavras longas ("Confraternização") não quebram: reduz a letra até
+      // caber na célula e, no limite, corta com reticências — nunca invade o dia vizinho.
+      const maxW = cw - 2.6;
+      let sz = 4.6, lines = pen.wrapText(ev[day], maxW, sz, false, 2);
+      while (sz > 3.2 && lines.some(l => pen.textWidth(l, sz, false) > maxW)) { sz -= 0.2; lines = pen.wrapText(ev[day], maxW, sz, false, 2); }
+      lines = lines.map(l => { let t = l; while (t.length > 1 && pen.textWidth(t, sz, false) > maxW) t = t.slice(0, -2) + '…'; return t; });
+      lines.forEach((ln, li) => pen.text(ln, gx + c * cw + 1.6, y + headH + r * chh + 6 + li * sz * 0.96, { size: sz, color: ctx.accent, baseline: 'top' }));
     }
   }
 }
@@ -766,7 +889,7 @@ PAGE_DRAW.weekVertical = (pen, box, o, ctx) => {
     pen.text(DOW3_PT[dt.getDay()].toUpperCase(), x + 1.6, top, { size: 6, font: 'bold', color: col, baseline: 'top' });
     pen.text(String(dt.getDate()), x + w - 1.6, top, { size: 7, color: ctx.faint, align: 'r', baseline: 'top' });
     const nm = markFn && markFn(dt);
-    if (nm) { const t = pen.wrapText(nm, w - 3, 3.6, false, 1)[0]; pen.text(t, x + 1.6, top + 4.3, { size: 3.6, color: ctx.accent, baseline: 'top' }); }
+    if (nm) { const t = clipLine(pen, nm, w - 3, 3.6); pen.text(t, x + 1.6, top + 4.3, { size: 3.6, color: ctx.accent, baseline: 'top' }); }
   };
   for (let i = 0; i < (split ? weekdayIdx.length : 5); i++) {
     const x = box.x + i * cw, dt = split ? days[weekdayIdx[i]] : days[i];
@@ -847,7 +970,7 @@ PAGE_DRAW.daySchedule = (pen, box, o, ctx) => {
   heading(pen, DOW_PT[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS_PT[d.getMonth()].toLowerCase() + (wide ? '' : ' ' + pad2(d.getMonth() + 1) + '/' + d.getFullYear()), box.x, box.y, box.w * (wide ? 0.72 : 0.98), 13, 8, { color: ctx.ink });
   if (wide) pen.text(fmtDMY(d), box.x + box.w, box.y + 1.5, { size: 9, color: ctx.faint, align: 'r', baseline: 'top' });
   const dmark = typeof ctx.markOn === 'function' ? ctx.markOn(d) : null;
-  if (dmark) pen.text(dmark, box.x, box.y + 7, { size: 6, color: ctx.accent, baseline: 'top' });
+  if (dmark) pen.text(clipLine(pen, dmark, box.w, 6), box.x, box.y + 7, { size: 6, color: ctx.accent, baseline: 'top' });
   const top = box.y + (dmark ? 12.5 : 9), side = o.side && box.w >= 115;
   const schedW = side ? box.w * 0.6 : box.w;
   pen.rect(box.x + 9, top, schedW - 9, box.y + box.h - top, { stroke: ctx.faint, w: 0.25 });
@@ -875,7 +998,7 @@ PAGE_DRAW.daySimple = (pen, box, o, ctx) => {
   const dmark = typeof ctx.markOn === 'function' ? ctx.markOn(d) : null;
   const bottom = box.y + box.h;
   let y = box.y + 14;
-  if (dmark) { pen.text(dmark, box.x, y, { size: 6.5, color: ctx.accent, baseline: 'top' }); y += 6; }
+  if (dmark) { pen.text(clipLine(pen, dmark, box.w, 6.5), box.x, y, { size: 6.5, color: ctx.accent, baseline: 'top' }); y += 6; }
   pen.text(ctx.L('principais'), box.x, y, { size: 7.5, font: 'bold', color: ctx.accent, baseline: 'top' }); y += 6;
   for (let k = 0; k < 3; k++) { cbox(pen, box.x, y + 5, 4, ctx.ink); pen.line(box.x + 7, y + 5, box.x + box.w, y + 5, { w: 0.2, color: ctx.hair }); y += 10; }
   y += 3;

@@ -83,6 +83,8 @@ function syncDocControls() {
   } }
   chk('#d_guide', s.showSafeGuide);
   set('#d_dpi', s.exportDPI);
+  chk('#d_acrylic', s.acrylic);
+  document.body.classList.toggle('acrylic', s.acrylic);
   if (typeof buildLabelFields === 'function') buildLabelFields();
   refreshColorFields();
   if (typeof mSync === 'function') mSync();
@@ -192,6 +194,9 @@ function bindDoc() {
   });
   $('#d_guide').onchange = e => commit('showSafeGuide', e.target.checked);
   $('#d_dpi').onchange = e => { state.settings.exportDPI = +e.target.value; save(); };
+  // Sem pushHistory: é preferência de tela (como a do Polaroide Studio), não
+  // conteúdo do documento — não deveria empurrar o Ctrl+Z de quem está editando.
+  $('#d_acrylic').onchange = e => { state.settings.acrylic = e.target.checked; document.body.classList.toggle('acrylic', e.target.checked); save(); };
   $('#d_ink').oninput = e => { pushHistory('ink'); state.settings.ink = e.target.value; svgCache.clear(); render(); save(); };
   $('#d_accent').oninput = e => { pushHistory('accent'); state.settings.accent = e.target.value; svgCache.clear(); render(); save(); };
   $('#d_paperbg').oninput = e => { pushHistory('paperbg'); state.settings.paperBg = e.target.value; svgCache.clear(); render(); save(); };
@@ -335,7 +340,7 @@ function openSecMenu(anchor, id) {
   const sec = state.sections.find(x => x.id === id);
   const pop = document.createElement('div'); pop.className = 'popmenu' + (mob ? ' pop-sheet' : '');
   if (mob) pop.insertAdjacentHTML('beforeend',
-    `<div class="tm-head"><span>${sec ? esc(sectionLabel(sec, [])) : 'Seção'}</span><button class="iconbtn ghost" data-tmx title="Fechar">${iconSVG('x')}</button></div>`);
+    `<div class="m-grab"><i></i></div><div class="tm-head"><span>${sec ? esc(sectionLabel(sec, [])) : 'Seção'}</span><button class="iconbtn ghost" data-tmx title="Fechar">${iconSVG('x')}</button></div>`);
   pop.insertAdjacentHTML('beforeend',
     `<button data-a="up">${iconSVG('chevleft')}<span>Mover para cima</span></button>` +
     `<button data-a="down">${iconSVG('chevright')}<span>Mover para baixo</span></button>` +
@@ -351,7 +356,7 @@ function openSecMenu(anchor, id) {
     else if (a === 'del') removeSection(id);
   });
   document.body.appendChild(pop);
-  if (mob) { mScrim(true); document.body.classList.add('sheet-open'); _pop = pop; return; }
+  if (mob) { mScrim(true); document.body.classList.add('sheet-open'); if (typeof mDragClose === 'function') mDragClose(pop.querySelector('.m-grab'), pop, closePop); _pop = pop; return; }
   const r = anchor.getBoundingClientRect();
   pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.right - pop.offsetWidth)) + 'px';
   pop.style.top = Math.min(innerHeight - pop.offsetHeight - 8, r.bottom + 4) + 'px';
@@ -377,25 +382,120 @@ function menuScrim(on) {
 function closePop() { if (_pop) { _pop.remove(); _pop = null; } mScrim(false); document.body.classList.remove('sheet-open'); }
 document.addEventListener('pointerdown', e => { if (_pop && !_pop.contains(e.target) && !(_popScrim && e.target === _popScrim)) closePop(); });
 
+/* ---- histórico visual (lista de passos pra voltar, não só Ctrl+Z às cegas) ---- */
+function relTime(ms) {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+  if (s < 5) return 'agora mesmo';
+  if (s < 60) return `há ${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `há ${m} min`;
+  return `há ${Math.round(m / 60)} h`;
+}
+function openHistoryPop(anchor) {
+  closePop();
+  if (!histMeta.length) { toast('Nada no histórico ainda.'); return; }
+  const mob = isMobile();
+  const pop = document.createElement('div'); pop.className = 'popmenu histpop scrl' + (mob ? ' pop-sheet' : '');
+  if (mob) pop.insertAdjacentHTML('beforeend',
+    `<div class="m-grab"><i></i></div><div class="tm-head"><span>Voltar até…</span><button class="iconbtn ghost" data-tmx title="Fechar">${iconSVG('x')}</button></div>`);
+  else pop.insertAdjacentHTML('beforeend', `<div class="tm-h">Voltar até…</div>`);
+  for (let i = histMeta.length - 1; i >= 0; i--) {
+    const n = histMeta.length - i;
+    pop.insertAdjacentHTML('beforeend', `<button type="button" data-n="${n}">${relTime(histMeta[i].t)}</button>`);
+  }
+  pop.addEventListener('click', e => {
+    if (e.target.closest('[data-tmx]')) { closePop(); return; }
+    const b = e.target.closest('[data-n]'); if (!b) return; closePop(); undoTo(+b.dataset.n);
+  });
+  document.body.appendChild(pop);
+  if (mob) { mScrim(true); document.body.classList.add('sheet-open'); if (typeof mDragClose === 'function') mDragClose(pop.querySelector('.m-grab'), pop, closePop); _pop = pop; return; }
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
+  pop.style.top = Math.min(innerHeight - pop.offsetHeight - 8, r.bottom + 4) + 'px';
+  _pop = pop;
+}
+
+/* ---- grade com todas as páginas (revisar um documento grande de uma vez) ----
+   Não desenha o SVG real de cada página — o palco principal já usa uma
+   janela de renderização (refreshWindow/WINDOW) justamente porque desenhar
+   todas as páginas de um documento de 200+ páginas de uma vez pesa. Em vez
+   disso, cada card é só número + rótulo da seção + uma cor por seção (pra
+   ver de relance onde uma seção começa e termina) — leve mesmo em
+   documentos grandes. */
+function openPageGrid() {
+  const pages = expand();
+  const box = $('#pg_grid'); box.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  pages.forEach((pd, i) => {
+    const sec = state.sections.find(s => s.id === pd.sectionId);
+    const label = sec ? sectionLabel(sec, []) : 'Página';
+    const hue = ((pd.si || 0) * 47) % 360;
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'pg-card' + (i === currentPage ? ' on' : '');
+    card.style.setProperty('--accent', `hsl(${hue} 55% 45%)`);
+    card.innerHTML = `<span class="pg-num">${i + 1}</span><span class="pg-lb">${esc(label)}</span>`;
+    card.onclick = () => { $('#pageGrid').close(); gotoPage(i); };
+    frag.appendChild(card);
+  });
+  box.appendChild(frag);
+  $('#pageGrid').showModal();
+}
+
+/* ---- ir direto para a página N (clique no contador "N / total") ---- */
+function openGotoPagePop(anchor) {
+  closePop();
+  const pop = document.createElement('div'); pop.className = 'popmenu gotopop';
+  const n = pageCount();
+  pop.innerHTML = `<label>Ir para a página (1–${n})
+    <input type="number" id="gp_input" min="1" max="${n}" step="1" value="${currentPage + 1}"></label>
+    <button type="button" data-go class="primary wfull">Ir</button>`;
+  const inp = pop.querySelector('#gp_input');
+  const go = () => { const v = clamp(Math.round(+inp.value || 1), 1, n); closePop(); gotoPage(v - 1); };
+  pop.querySelector('[data-go]').onclick = go;
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
+  pop.style.top = Math.min(innerHeight - pop.offsetHeight - 8, r.bottom + 4) + 'px';
+  _pop = pop;
+  inp.focus(); inp.select();
+}
+
 /* ---- menu "Adicionar seção" ---- */
+// Busca por nome: filtra os .tm-item pelo rótulo (data-label, já em minúsculas)
+// e some com o cabeçalho de grupo (.tm-h) quando nenhum item dele sobra —
+// achado de maior impacto da auditoria (44 tipos em 3 grupos, sem filtro).
+function filterTypeMenu(pop, q) {
+  q = (q || '').trim().toLowerCase();
+  pop.querySelectorAll('.tm-item').forEach(b => { b.hidden = !!q && !b.dataset.label.includes(q); });
+  pop.querySelectorAll('.tm-h').forEach(h => {
+    let any = false, n = h.nextElementSibling;
+    while (n && !n.classList.contains('tm-h')) { if (n.classList.contains('tm-item') && !n.hidden) any = true; n = n.nextElementSibling; }
+    h.hidden = !any;
+  });
+}
 function openTypeMenu(anchor) {
   closePop();
   const mob = isMobile();
   const pop = document.createElement('div'); pop.className = 'popmenu typemenu scrl' + (mob ? ' tm-sheet' : '');
   if (mob) pop.insertAdjacentHTML('beforeend',
-    `<div class="tm-head"><span>Adicionar seção</span><button class="iconbtn ghost" data-tmx title="Fechar">${iconSVG('x')}</button></div>`);
+    `<div class="m-grab"><i></i></div><div class="tm-head"><span>Adicionar seção</span><button class="iconbtn ghost" data-tmx title="Fechar">${iconSVG('x')}</button></div>`);
+  pop.insertAdjacentHTML('beforeend', `<input type="text" class="tm-search" placeholder="Buscar tipo de página…" autocomplete="off">`);
   PAGE_GROUPS.forEach(g => {
     pop.insertAdjacentHTML('beforeend', `<div class="tm-h">${g}</div>`);
     Object.entries(PAGE_TYPES).filter(([, T]) => T.group === g).forEach(([k, T]) => {
-      pop.insertAdjacentHTML('beforeend', `<button data-t="${k}" class="tm-item"><span class="tm-pv">${typePreviewSVG(k)}</span><span class="tm-lb">${esc(T.label)}</span></button>`);
+      pop.insertAdjacentHTML('beforeend', `<button data-t="${k}" data-label="${esc(T.label.toLowerCase())}" class="tm-item"><span class="tm-pv">${typePreviewSVG(k)}</span><span class="tm-lb">${esc(T.label)}</span></button>`);
     });
   });
   pop.addEventListener('click', e => {
     if (e.target.closest('[data-tmx]')) { closePop(); return; }
     const b = e.target.closest('[data-t]'); if (!b) return; closePop(); addSection(b.dataset.t);
   });
+  const search = pop.querySelector('.tm-search');
+  search.addEventListener('input', () => filterTypeMenu(pop, search.value));
   document.body.appendChild(pop);
-  if (mob) { mScrim(true); document.body.classList.add('sheet-open'); _pop = pop; return; }
+  if (mob) { mScrim(true); document.body.classList.add('sheet-open'); if (typeof mDragClose === 'function') mDragClose(pop.querySelector('.m-grab'), pop, closePop); _pop = pop; return; }
   const r = anchor.getBoundingClientRect();
   pop.style.left = Math.max(8, Math.min(innerWidth - pop.offsetWidth - 8, r.left)) + 'px';
   pop.style.top = Math.min(innerHeight - pop.offsetHeight - 8, r.bottom + 4) + 'px';
@@ -584,16 +684,46 @@ function openCF(btn, inp) {
   cfOpen = { pop, input: inp, btn };
 }
 document.addEventListener('pointerdown', e => { if (cfOpen && !cfOpen.pop.contains(e.target) && !cfOpen.btn.contains(e.target)) closeCF(); });
-addEventListener('keydown', e => { if (e.key === 'Escape') { closeCF(); closePop(); } }, true);
+addEventListener('keydown', e => { if (e.key === 'Escape') { closeCF(); closePop(); closeExportPop(); } }, true);
 // fecha os popovers quando a PÁGINA rola — mas não quando o scroll acontece
 // DENTRO do próprio popover (a lista de "Adicionar seção" tem rolagem própria).
 addEventListener('scroll', e => {
   const t = e.target;
   if (_pop && (_pop === t || (t && t.nodeType === 1 && _pop.contains(t)))) return;
   if (cfOpen && cfOpen.pop && (cfOpen.pop === t || (t && t.nodeType === 1 && cfOpen.pop.contains(t)))) return;
-  closeCF(); closePop();
+  if (exportPopOpen && (t === $('#d_exportWrap') || (t && t.nodeType === 1 && $('#d_exportWrap').contains(t)))) return;
+  closeCF(); closePop(); closeExportPop();
 }, true);
-addEventListener('resize', () => { closeCF(); closePop(); });
+addEventListener('resize', () => { closeCF(); closePop(); closeExportPop(); });
+
+/* ================= popover "Configurar exportação" (ancorado no botão da barra) ================= */
+// Regra transversal do plano: Exportação sai da lista do painel esquerdo — os campos
+// (modo, folha, ordem 2-up, DPI) continuam sendo os MESMOS nós do DOM (mesmos ids,
+// mesmos listeners já ligados em bindLeft), só exibidos como popover ancorado no
+// botão da barra em vez de aberto dentro da lista que rola. No celular quem manda
+// é o mobile.js (aba "Exportar" própria) — este popover só existe no desktop.
+let exportPopOpen = false;
+function closeExportPop() {
+  const exp = $('#d_exportWrap');
+  if (!exp || !exportPopOpen) return;
+  exp.classList.remove('pop-open'); exp.open = false; exportPopOpen = false;
+  $('#b_exportCfg') && $('#b_exportCfg').classList.remove('on');
+}
+function toggleExportPop(anchor) {
+  const exp = $('#d_exportWrap');
+  if (!exp || isMobile()) return;
+  if (exportPopOpen) { closeExportPop(); return; }
+  closeCF(); closePop();
+  exp.open = true; exp.classList.add('pop-open'); exportPopOpen = true;
+  anchor.classList.add('on');
+  const r = anchor.getBoundingClientRect();
+  exp.style.left = Math.max(8, Math.min(innerWidth - exp.offsetWidth - 8, r.right - exp.offsetWidth)) + 'px';
+  exp.style.top = (r.bottom + 6 + exp.offsetHeight > innerHeight ? Math.max(8, r.top - 6 - exp.offsetHeight) : r.bottom + 6) + 'px';
+}
+document.addEventListener('pointerdown', e => {
+  const exp = $('#d_exportWrap'), btn = $('#b_exportCfg');
+  if (exportPopOpen && exp && !exp.contains(e.target) && !(btn && btn.contains(e.target))) closeExportPop();
+});
 
 /* ================= painéis / zen ================= */
 function togglePanel(side, on) {
@@ -631,8 +761,19 @@ function bindBar() {
   $('#b_zin').onclick = () => { userZoomed = true; zoom = clamp(zoom + .1, .08, 3); applyZoom(); };
   $('#b_zout').onclick = () => { userZoomed = true; zoom = clamp(zoom - .1, .08, 3); applyZoom(); };
   $('#b_fit').onclick = fit;
+  {
+    const zi = $('#zval');
+    const commitZoom = () => {
+      const v = clamp(parseFloat(zi.value) || Math.round(zoom * 100), 8, 300);
+      userZoomed = true; zoom = v / 100; applyZoom();
+    };
+    zi.addEventListener('change', commitZoom);
+    zi.addEventListener('keydown', e => { if (e.key === 'Enter') { commitZoom(); zi.blur(); } });
+  }
+  $('#pageLbl').onclick = e => { e.stopPropagation(); openGotoPagePop(e.currentTarget); };
   $('#b_pdf').onclick = exportPDF; $('#b_png').onclick = exportPNG;
   $('#b_print').onclick = printDoc;
+  $('#b_exportCfg').onclick = e => { e.stopPropagation(); toggleExportPop(e.currentTarget); };
   $('#b_pl').onclick = () => togglePanel('left');
   $('#b_pr').onclick = () => togglePanel('right');
   $('#b_zen').onclick = () => { zen = !zen; applyUI(); };
@@ -647,6 +788,9 @@ function bindBar() {
   $('#m_pdf').onclick = () => { mclose(); exportPDF(); };
   $('#m_png').onclick = () => { mclose(); exportPNG(); };
   $('#m_print').onclick = () => { mclose(); printDoc(); };
+  $('#m_dupPage').onclick = () => { mclose(); dupCurrentPage(); };
+  $('#m_pageGrid').onclick = () => { mclose(); openPageGrid(); };
+  $('#m_history').onclick = () => { mclose(); openHistoryPop($('#b_more')); };
   $('#m_new').onclick = () => { mclose(); if (!state.sections.length || confirm('Começar um novo documento? O atual será descartado.')) { newDoc(TEMPLATES.find(t => t.id === 'branco')); toast('Novo documento.'); } };
   $('#m_save').onclick = () => { mclose(); exportProject(); };
   $('#m_open').onclick = () => { mclose(); $('#file_open').click(); };
@@ -662,19 +806,40 @@ function bindBar() {
     const bl = $('#brandLink'); bl.href = ACERVO_URL; bl.target = '_blank';
     const ma = $('#m_acervo'); if (ma) { ma.href = ACERVO_URL; ma.target = '_blank'; ma.hidden = false; }
   }
+  if (typeof PRINT_CTA_URL !== 'undefined' && PRINT_CTA_URL) {
+    const mp = $('#m_print_cta'); if (mp) { mp.href = PRINT_CTA_URL; mp.target = '_blank'; mp.hidden = false; }
+  }
   if (typeof FEEDBACK_URL !== 'undefined' && FEEDBACK_URL) {
     const mf = $('#m_feedback'); if (mf) { mf.href = FEEDBACK_URL; mf.target = '_blank'; mf.hidden = false; }
   }
-  // templates da tela inicial
-  const tl = $('#tplList');
-  if (tl) TEMPLATES.forEach(t => {
+  function buildTplCard(t) {
     const b = document.createElement('button'); b.type = 'button';
     b.className = 'tpl-card' + (t.id === 'branco' ? ' tpl-card--blank' : '');
     b.innerHTML = `<span class="tpl-card__thumb">${tplThumbSVG(t)}</span>
       <span class="tpl-card__name">${esc(t.name)}</span>
       <span class="tpl-card__desc">${esc(t.desc)}</span>`;
+    return b;
+  }
+  // templates da tela inicial (sem confirmação — não há nada a perder ainda)
+  const tl = $('#tplList');
+  if (tl) TEMPLATES.forEach(t => {
+    const b = buildTplCard(t);
     b.onclick = () => { newDoc(t); toast('Modelo: ' + t.name); };
     tl.appendChild(b);
+  });
+  // mesma galeria, sempre acessível no painel esquerdo — com documento em
+  // andamento, troca de modelo é destrutiva (igual "Novo documento"), então
+  // pede confirmação antes (achado da auditoria: reabrir a galeria hoje só
+  // existe na tela vazia, forçando "Novo documento" — que também apaga tudo
+  // — como único caminho pra trocar de ideia no meio de um documento).
+  const tlp = $('#tplListPanel');
+  if (tlp) TEMPLATES.forEach(t => {
+    const b = buildTplCard(t);
+    b.onclick = () => {
+      if (state.sections.length && !confirm('Aplicar o modelo "' + t.name + '"? O documento atual será substituído.')) return;
+      newDoc(t); toast('Modelo: ' + t.name);
+    };
+    tlp.appendChild(b);
   });
 }
 

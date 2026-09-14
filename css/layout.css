@@ -1,13 +1,13 @@
 /* Planner Studio — css/layout.css  (grade do app, barra, painéis, prancheta) */
 
 #app{display:grid;grid-template-columns:322px 1fr 300px;grid-template-rows:56px 1fr;
-  height:100vh;height:100dvh;background:var(--stage);
+  height:100vh;height:100dvh;background:var(--stage);--gut-l:322px;--gut-r:300px;
   transition:grid-template-columns .22s ease, grid-template-rows .22s ease}
-#app.hide-left{grid-template-columns:0 1fr 300px}
-#app.hide-right{grid-template-columns:322px 1fr 0}
-#app.hide-left.hide-right{grid-template-columns:0 1fr 0}
-#app.zen{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
-body.onboarding #app{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
+#app.hide-left{grid-template-columns:0 1fr 300px;--gut-l:0px}
+#app.hide-right{grid-template-columns:322px 1fr 0;--gut-r:0px}
+#app.hide-left.hide-right{grid-template-columns:0 1fr 0;--gut-l:0px;--gut-r:0px}
+#app.zen{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0;--gut-l:0px;--gut-r:0px}
+body.onboarding #app{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0;--gut-l:0px;--gut-r:0px}
 
 #bar{grid-column:1/-1;display:flex;align-items:center;gap:7px;padding:0 12px;
   background:var(--surface);border-bottom:1px solid var(--line);box-shadow:var(--sh-1);z-index:20;
@@ -28,7 +28,20 @@ body.onboarding #app{grid-template-rows:0 1fr;grid-template-columns:0 1fr 0}
 .bar-grow{flex:1}
 .bar-cluster{display:flex;align-items:center;gap:5px;flex:none}
 .pagenav{display:flex;align-items:center;gap:3px;white-space:nowrap;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-#zval{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
+/* #zval (ID) em vez de .zval-input (classe) de propósito: base.css tem
+   "input[type=number]{width:100%}" — um seletor de atributo conta como
+   classe, então essa regra empata ou ganha de uma classe sozinha. Só um
+   seletor de ID garante que a largura de 34px realmente vence (foi
+   exatamente esse empate que fez o campo virar quase a largura toda da
+   barra, com fundo igual ao da barra — parecia "sumir", não só ficar largo). */
+#zval{width:34px;min-width:0;text-align:center;font-variant-numeric:tabular-nums;color:var(--muted);
+  font-size:12px;padding:2px 0;border:1px solid transparent;background:transparent;
+  border-radius:var(--r-sm);-moz-appearance:textfield;appearance:textfield}
+#zval:hover,#zval:focus{border-color:var(--line);background:var(--surface)}
+#zval::-webkit-inner-spin-button,#zval::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.pagelbl-btn{border:1px solid transparent;background:transparent;color:var(--muted);font-size:12px;
+  font-variant-numeric:tabular-nums;padding:2px 6px;border-radius:var(--r-sm)}
+.pagelbl-btn:hover{border-color:var(--line);background:var(--surface);color:var(--ink)}
 .stat{color:var(--faint);font-size:11.5px;white-space:nowrap;padding:0 4px}
 .iconbtn.on{background:var(--brand-soft);border-color:var(--brand-ring);color:var(--brand)}
 
@@ -47,23 +60,42 @@ aside{background:var(--paper);overflow-y:auto;overflow-x:hidden;overscroll-behav
 #stage::-webkit-scrollbar{width:0;height:0;display:none}
 body.panning #stage,body.panning #stage *{cursor:grabbing!important}
 
+/* acrílico (portado do Polaroide Studio): o quadro de trabalho passa por
+   trás dos painéis translúcidos. Os três itens da linha 2 da grade ganham
+   posição explícita pra poderem se sobrepor; o recuo do #stage acompanha a
+   largura de cada painel (--gut-l/--gut-r, atualizadas junto com
+   hide-left/hide-right/zen acima). */
+body.acrylic #stage{grid-column:1/-1;grid-row:2;z-index:1;
+  padding-left:calc(30px + var(--gut-l));padding-right:calc(30px + var(--gut-r))}
+body.acrylic #left{grid-column:1;grid-row:2;z-index:15}
+body.acrylic #right{grid-column:3;grid-row:2;z-index:15}
+@supports (backdrop-filter:blur(4px)) or (-webkit-backdrop-filter:blur(4px)){
+  body.acrylic #bar,body.acrylic #left,body.acrylic #right,
+  body.acrylic #menu,body.acrylic dialog{
+    background:color-mix(in srgb, var(--surface) 85%, transparent);
+    -webkit-backdrop-filter:blur(16px) saturate(1.5);
+    backdrop-filter:blur(16px) saturate(1.5);
+  }
+  body.acrylic #left{border-right-color:color-mix(in srgb,var(--line) 60%,transparent)}
+  body.acrylic #right{border-left-color:color-mix(in srgb,var(--line) 60%,transparent)}
+  body.acrylic #bar{border-bottom-color:color-mix(in srgb,var(--line) 60%,transparent)}
+}
+/* respeita quem pediu menos transparência no sistema (só desliga se o
+   navegador entende a consulta; se não entende, o bloco é ignorado). */
+@media (prefers-reduced-transparency:reduce){
+  body.acrylic #bar,body.acrylic #left,body.acrylic #right,
+  body.acrylic #menu,body.acrylic dialog{
+    background:var(--surface);-webkit-backdrop-filter:none;backdrop-filter:none;
+  }
+  body.acrylic #left,body.acrylic #right{background:var(--paper)}
+}
+
 #sheets{display:flex;flex-direction:column;align-items:center;gap:26px;height:max-content;padding-bottom:40px}
 .page{background:#fff;box-shadow:var(--sh-2);flex:none;position:relative;border-radius:2px;overflow:hidden;
   outline:0 solid transparent;transition:outline-color .15s}
 .page.inSel{outline:2px solid var(--brand-ring)}
 .page svg{display:block;width:100%;height:100%}
 
-#empty,#resumeAsk{position:absolute;inset:0;display:grid;place-items:center;padding:24px;pointer-events:none;overflow:auto}
-#empty .box,#resumeAsk .box{pointer-events:auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
-  box-shadow:var(--sh-2);max-width:min(880px,94vw);width:100%;max-height:86vh;overflow:auto;padding:36px 32px 32px;text-align:center;margin:auto}
-#empty .kicker,#resumeAsk .kicker{display:block;margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--brand)}
-#empty .mark,#resumeAsk .mark{display:inline-grid;place-items:center;width:60px;height:60px;margin-bottom:14px;border-radius:50%;background:var(--brand-soft)}
-#empty .mark svg,#resumeAsk .mark svg{width:32px;height:32px}
-#empty h3,#resumeAsk h3{margin:.15em 0 .1em;font-family:var(--display);font-weight:400;font-size:26px;letter-spacing:-.02em;color:var(--ink)}
-#empty .rule,#resumeAsk .rule{width:34px;height:2px;margin:10px auto 16px;border-radius:2px;background:var(--brand);opacity:.55}
-#empty p,#resumeAsk p{color:var(--muted);margin:.2em 0 1em;line-height:1.6}
-#empty .faint,#resumeAsk .faint{margin-top:16px;font-size:11.5px}
-#resumeAsk .box{max-width:420px}
-.ra-actions{display:flex;flex-direction:column;gap:9px;margin:0 auto;max-width:280px}
+/* telas iniciais (#empty/#resumeAsk): ver .ep-start em vendor/core/shell.css */
 
 #zenExit{position:fixed;top:12px;right:12px;z-index:60;background:var(--surface);box-shadow:var(--sh-pop)}

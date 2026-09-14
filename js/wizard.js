@@ -12,14 +12,18 @@ const WIZ_STARTERS = ['bujo', 'semanal', 'diario', 'pautado', 'bloco-notas', 'es
 
 const WIZ_STEPS = [
   { title: 'Que tamanho de papel?', desc: 'Dá pra mudar depois, nas configurações do documento.',
-    options: Object.keys(PAGE_SIZES).map(id => {
+    options: ['a5', 'a4', 'b5', 'a6', 'half', 'trav', 'pocket', 'letter', 'a3', 'square'].filter(id => PAGE_SIZES[id]).map(id => {
       const parts = PAGE_SIZES[id].label.split('—');
       return { id, label: parts[0].trim(), desc: (parts[1] || '').trim() };
     }),
-    preview: (opt) => tplThumbSVG({ id: 'branco', settings: { paper: opt.id } }) },
+    preview: (opt) => paperSizeThumb(opt.id) },
   { title: 'Por onde você quer começar?', desc: 'Depois dá pra adicionar, remover e reordenar seções à vontade.',
     options: WIZ_STARTERS.map(id => { const t = TEMPLATES.find(x => x.id === id); return { id: t.id, label: t.name, desc: t.desc }; }),
-    preview: (opt, draft) => tplThumbSVG({ id: opt.id, settings: { paper: draft.paper } }) },
+    preview: (opt, draft) => {
+      const t = TEMPLATES.find(x => x.id === opt.id);
+      if (t && t.id !== 'branco' && typeof templateThumb === 'function') return templateThumb({ ...t, settings: { ...t.settings, paper: draft.paper } });
+      return tplThumbSVG({ id: opt.id, settings: { paper: draft.paper } });
+    } },
   { title: 'Como vai ser a capa?', desc: 'Pode deixar em branco e ajustar depois, no painel da seção Capa.',
     form: true,
     fields: [
@@ -31,6 +35,15 @@ const WIZ_STEPS = [
     options: Object.keys(BINDINGS).map(id => ({ id, label: BINDINGS[id].label, desc: '' })),
     preview: (opt, draft) => tplThumbSVG({ id: draft.starterId || 'branco', settings: { paper: draft.paper }, binding: opt.id }) },
 ];
+
+// página em escala real relativa (A3 grande, A6 pequena) com as linhas de pauta
+function paperSizeThumb(id) {
+  const p = PAGE_SIZES[id] || PAGE_SIZES.a5, k = 92 / 420;
+  const w = p.w * k, h = p.h * k, x = (100 - w) / 2, y = 100 - 4 - h;
+  let lines = '';
+  for (let yy = y + 7; yy < y + h - 4; yy += Math.max(3.2, h / 14)) lines += `<line x1="${(x + 4).toFixed(1)}" y1="${yy.toFixed(1)}" x2="${(x + w - 4).toFixed(1)}" y2="${yy.toFixed(1)}" stroke="var(--line)" stroke-width=".7"/>`;
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="#fff" stroke="var(--brand)" stroke-width="1"/>${lines}</svg>`;
+}
 
 let wizStep = 0;
 let wizDraft = null;
@@ -110,7 +123,7 @@ function finishWizard() {
       if (subtitle) cov.opts.subtitle = subtitle;
       if (owner) { cov.opts.owner = owner; cov.opts.showOwner = true; }
     } else {
-      sections.unshift({ type: 'cover', count: 1, opts: { title: title || 'Meu Planner', subtitle, owner, showOwner: !!owner, style: 'plain' } });
+      sections.unshift({ type: 'cover', count: 1, opts: { title: title || 'Meu Planner', subtitle, owner, showOwner: !!owner, style: 'modern' } });
     }
   }
   newDoc({ settings, sections });

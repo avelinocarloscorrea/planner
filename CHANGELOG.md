@@ -1,5 +1,17 @@
 # Histórico
 
+## 0.3 — interface redesenhada e impressão com prévia
+- **Interface nova**: etapas Modelo → Personalizar → Imprimir na barra, painel
+  esquerdo em abas (Páginas, Papel, Datas, Estilo, Modelos), barra flutuante de
+  navegação e zoom, galeria inicial com miniaturas reais e filtros.
+- **Imprimir e baixar**: prévia real da folha (mesma imposição do PDF), modos em
+  cartões, resumo de folhas, instruções para a impressora e verificação antes
+  de imprimir.
+- **Capas**: 5 estilos novos (moderna, cor sólida, metade colorida, ano em
+  destaque, arco); cada modelo com capa e paleta próprias.
+- **PDF**: imagens JPEG embutidas direto (arquivos bem menores) e logo sem
+  distorção; nomes de feriado não invadem mais a célula vizinha.
+
 ## 0.2 — núcleo compartilhado, editor de blocos e assistente de início
 - **Página personalizada**: novo editor de blocos de tela cheia — 13 tipos
   (texto, título, linhas, pontilhado, quadriculado, caixa, tabela, checklist,

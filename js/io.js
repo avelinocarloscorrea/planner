@@ -381,7 +381,7 @@ async function importProject(file) {
     if (!st || typeof st !== 'object') throw new Error('estrutura');
     state = migrate(st);
     selId = state.sections[0] ? state.sections[0].id : null;
-    past = []; future = []; svgCache.clear(); currentPage = 0;
+    past = []; future = []; histMeta = []; svgCache.clear(); currentPage = 0;
     syncDocControls(); render(); save(); fit();
     toast('Projeto carregado.');
   } catch (e) { console.error(e); alert('Arquivo de projeto inválido.'); }

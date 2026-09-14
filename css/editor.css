@@ -115,6 +115,17 @@ body.be-open #toast { z-index: 4400; }
 @media (max-width: 760px) {
   .be-body { flex-direction: column; }
   .be-props { width: auto; border-left: 0; border-top: 1px solid var(--line); max-height: 44vh; }
-  .be-h { width: 20px; height: 20px; }
+  .be-h { width: 28px; height: 28px; }
+  .be-h-e { right: -14px; }
+  .be-h-s { bottom: -14px; }
+  .be-h-se { right: -14px; bottom: -14px; }
   .be-canvas { padding: 12px; }
+  /* alças de redimensionar maiores pedem mais espaço da borda do bloco até a
+     borda da página, senão ficam cortadas nos blocos junto da margem. */
+  .be-page { margin: 14px; }
+  .be-bar button { min-height: 44px; padding: 9px 12px; }
+  .be-bar button.iconbtn { min-width: 44px; padding: 9px; }
+  .be-bar select { min-height: 44px; }
+  .be-pa button { padding: 9px; }
+  .be-var { width: 30px; height: 30px; }
 }
