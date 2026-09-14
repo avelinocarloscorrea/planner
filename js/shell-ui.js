@@ -396,3 +396,5 @@ addEventListener('keydown', e => {
     hide('fld_bgDim', !sec.opts.bg);
   };
 }
+
+EPShell.ready();

@@ -125,11 +125,20 @@ function mOpenTab(tab) {
   { const mn = $('#menu'); if (mn) mn.hidden = true; }
   if (typeof menuScrim === 'function') menuScrim(false);
   mTab = tab;
+  // "Editar" sem nada selecionado: abre direto a seção da página que está na tela
+  if (tab === 'secao' && state.sections.length) {
+    if (!curSection() && typeof selectSection === 'function') {
+      const pd = expand()[clamp(currentPage, 0, pageCount() - 1)];
+      if (pd) selectSection(pd.sectionId, { noScroll: true, fromPage: true });
+    }
+    if (typeof fillRight === 'function') fillRight();
+    mSyncRight(curSection());
+  }
   $$('#mtabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $$('.msheet').forEach(s => s.hidden = (s.dataset.tab !== tab));
   const w = $('#mstageWrap'); if (w) w.hidden = (tab !== 'paginas');
   // O "+" (adicionar seção) só faz sentido vendo as páginas ou a lista de seções.
-  const fab = $('#mfab'); if (fab) fab.hidden = !(tab === 'paginas' || tab === 'documento');
+  mFabSync();
   if (tab === 'paginas' && !userZoomed) requestAnimationFrame(fit);
   if (tab === 'exportar' && typeof xpRefresh === 'function') { if (typeof xpSetup === 'function') xpSetup(); requestAnimationFrame(xpRefresh); }
   const sh = $$('.msheet').find(s => s.dataset.tab === tab); if (sh) sh.scrollTop = 0;
@@ -140,13 +149,16 @@ function mSync() {
   if (mp) { const n = pageCount(); mp.textContent = n > 1 ? `Pág. ${currentPage + 1}/${n}` : ''; }
   // sem seções ainda: a tela de boas-vindas já traz os modelos + "do zero",
   // o "+" flutuante só atrapalha por cima dos cards.
-  const fab = $('#mfab');
-  if (fab && isMobile()) {
-    const empty = !state.sections.length;
-    if (empty) fab.hidden = true;
-    else if ((mTab === 'paginas' || mTab === 'documento')) fab.hidden = false;
-  }
+  mFabSync();
 }
+// O "+" (adicionar seção) só aparece vendo as páginas ou a lista de seções —
+// nunca por cima dos ajustes de papel, datas, estilo…
+function mFabSync() {
+  const fab = $('#mfab'); if (!fab || !isMobile()) return;
+  const pane = $('#rail button.on'), onList = !pane || pane.dataset.pane === 'paginas';
+  fab.hidden = !state.sections.length || !(mTab === 'paginas' || (mTab === 'documento' && onList));
+}
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#rail')) setTimeout(mFabSync, 0); });
 
 /* ================= barra de seleção curta (aba "Seção", só mobile) =================
    Padrão portado do Polaroide Studio: tocar numa seção mostra uma barrinha
@@ -154,7 +166,7 @@ function mSync() {
    com Tipo/Contagem/todos os campos daquele tipo de página) — o painel
    completo só abre se a pessoa pedir. Cada seleção NOVA volta a nascer
    recolhida, igual ao comportamento do Polaroide. */
-let _selBarExpanded = false, _selBarLastId = null;
+let _selBarExpanded = true, _selBarLastId = null;
 function mSyncRight(sec) {
   const bar = $('#msel_bar'), sheet = $('#msheet_sec');
   if (!bar || !sheet) return;
@@ -163,7 +175,7 @@ function mSyncRight(sec) {
     _selBarLastId = null;
     return;
   }
-  if (sec.id !== _selBarLastId) { _selBarExpanded = false; _selBarLastId = sec.id; }
+  _selBarLastId = sec.id;
   bar.hidden = false;
   $('#msel_name').textContent = sectionLabel(sec, []);
   $('#msel_adjust').textContent = _selBarExpanded ? 'Recolher' : 'Ajustar';

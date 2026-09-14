@@ -34,17 +34,17 @@
 <meta name="twitter:description" content="Monte o miolo de cadernos, planners e agendas personalizados e exporte um PDF vetorial pronto para impressão — sem cadastro, sem enviar seus dados a servidor nenhum.">
 <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-400-normal.woff2">
 <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-700-normal.woff2">
-<link rel="stylesheet" href="css/base.css?v=260914021038">
-<link rel="stylesheet" href="css/layout.css?v=260914021038">
-<link rel="stylesheet" href="css/studio.css?v=260914021038">
-<link rel="stylesheet" href="css/util.css?v=260914021038">
-<link rel="stylesheet" href="css/print.css?v=260914021038">
-<link rel="stylesheet" href="css/mobile.css?v=260914021038">
-<link rel="stylesheet" href="css/editor.css?v=260914021038">
-<link rel="stylesheet" href="vendor/core/fonts/fonts.css?v=260914021038">
-<link rel="stylesheet" href="vendor/core/shell.css?v=260914021038">
+<link rel="stylesheet" href="css/base.css?v=260914144257">
+<link rel="stylesheet" href="css/layout.css?v=260914144257">
+<link rel="stylesheet" href="css/studio.css?v=260914144257">
+<link rel="stylesheet" href="css/util.css?v=260914144257">
+<link rel="stylesheet" href="css/print.css?v=260914144257">
+<link rel="stylesheet" href="css/mobile.css?v=260914144257">
+<link rel="stylesheet" href="css/editor.css?v=260914144257">
+<link rel="stylesheet" href="vendor/core/fonts/fonts.css?v=260914144257">
+<link rel="stylesheet" href="vendor/core/shell.css?v=260914144257">
 </head>
-<body>
+<body class="booting">
 <div id="app">
   <header id="bar">
     <a class="brand" id="brandLink" rel="noopener noreferrer" title="Mais ferramentas Esmeralda Paper">
@@ -330,7 +330,7 @@
     <div id="mstageWrap"><!-- #stage entra aqui --></div>
     <section class="msheet scrl" id="msheet_doc" data-tab="documento" hidden><!-- #left entra aqui --></section>
     <section class="msheet scrl" id="msheet_sec" data-tab="secao" hidden>
-      <div id="msel_bar" class="msel-bar" hidden><span id="msel_name" class="msel-name"></span><button type="button" id="msel_adjust" class="primary">Ajustar</button></div>
+      <div id="msel_bar" class="msel-bar" hidden><span id="msel_name" class="msel-name"></span><button type="button" id="msel_adjust" class="primary" hidden>Ajustar</button></div>
       <!-- #right entra aqui --></section>
     <section class="msheet scrl" id="msheet_export" data-tab="exportar" hidden>
       <div class="pane-h"><h2>Imprimir e baixar</h2><p>Veja como as páginas vão sair na folha e baixe o PDF pronto.</p></div>
@@ -348,9 +348,9 @@
     <button id="mfab" data-i="plus" title="Adicionar seção"></button>
   </div>
   <nav id="mtabs">
-    <button data-tab="paginas" class="on"><span data-i="page"></span><i>Páginas</i></button>
+    <button data-tab="paginas" class="on"><span data-i="page"></span><i>Prévia</i></button>
     <button data-tab="documento"><span data-i="sliders"></span><i>Ajustes</i></button>
-    <button data-tab="secao"><span data-i="cursor"></span><i>Seção</i></button>
+    <button data-tab="secao"><span data-i="cursor"></span><i>Editar</i></button>
     <button data-tab="exportar"><span data-i="printer"></span><i>Imprimir</i></button>
   </nav>
 </div>
@@ -521,27 +521,27 @@
   <div class="dbody scrl"><div id="pg_grid" class="pg-grid"></div></div>
 </dialog>
 
-<script defer src="vendor/core/dates.js?v=260914021038"></script>
-<script defer src="vendor/core/blocks.js?v=260914021038"></script>
-<script defer src="vendor/core/binding.js?v=260914021038"></script>
-<script defer src="vendor/core/imgedit.js?v=260914021038"></script>
-<script defer src="vendor/core/shell.js?v=260914021038"></script>
-<script defer src="js/config.js?v=260914021038"></script>
-<script defer src="vendor/core/fonts/metrics.js?v=260914021038"></script>
-<script defer src="vendor/core/ttf.js?v=260914021038"></script>
-<script defer src="vendor/core/jpeg.js?v=260914021038"></script>
-<script defer src="vendor/core/color.js?v=260914021038"></script>
-<script defer src="vendor/core/pdf.js?v=260914021038"></script>
-<script defer src="vendor/core/pen.js?v=260914021038"></script>
-<script defer src="vendor/core/print.js?v=260914021038"></script>
-<script defer src="js/pages.js?v=260914021038"></script>
-<script defer src="js/engine.js?v=260914021038"></script>
-<script defer src="js/io.js?v=260914021038"></script>
-<script defer src="js/mobile.js?v=260914021038"></script>
-<script defer src="js/install.js?v=260914021038"></script>
-<script defer src="js/ui.js?v=260914021038"></script>
-<script defer src="js/editor.js?v=260914021038"></script>
-<script defer src="js/wizard.js?v=260914021038"></script>
-<script defer src="js/shell-ui.js?v=260914021038"></script>
+<script defer src="vendor/core/dates.js?v=260914144257"></script>
+<script defer src="vendor/core/blocks.js?v=260914144257"></script>
+<script defer src="vendor/core/binding.js?v=260914144257"></script>
+<script defer src="vendor/core/imgedit.js?v=260914144257"></script>
+<script defer src="vendor/core/shell.js?v=260914144257"></script>
+<script defer src="js/config.js?v=260914144257"></script>
+<script defer src="vendor/core/fonts/metrics.js?v=260914144257"></script>
+<script defer src="vendor/core/ttf.js?v=260914144257"></script>
+<script defer src="vendor/core/jpeg.js?v=260914144257"></script>
+<script defer src="vendor/core/color.js?v=260914144257"></script>
+<script defer src="vendor/core/pdf.js?v=260914144257"></script>
+<script defer src="vendor/core/pen.js?v=260914144257"></script>
+<script defer src="vendor/core/print.js?v=260914144257"></script>
+<script defer src="js/pages.js?v=260914144257"></script>
+<script defer src="js/engine.js?v=260914144257"></script>
+<script defer src="js/io.js?v=260914144257"></script>
+<script defer src="js/mobile.js?v=260914144257"></script>
+<script defer src="js/install.js?v=260914144257"></script>
+<script defer src="js/ui.js?v=260914144257"></script>
+<script defer src="js/editor.js?v=260914144257"></script>
+<script defer src="js/wizard.js?v=260914144257"></script>
+<script defer src="js/shell-ui.js?v=260914144257"></script>
 </body>
 </html>

@@ -263,12 +263,12 @@ function updateBindHint() {
   if (!n || typeof EPBinding === 'undefined') { el.textContent = ''; return; }
   const e = EPBinding.estimate({ pages: n, gsm: s.bindPaperGsm, paperKind: s.bindPaperKind });
   const bind = s.binding || 'none';
-  const parts = [`${n} pág. = ${e.sheets} folha(s) físicas`, `miolo ≈ ${e.thicknessMm.toFixed(1)} mm`];
-  if (bind === 'wireo') parts.push(`garra wire-o ≈ ${e.wireo.label} (${e.wireo.mm} mm, passo ${e.wireo.pitch})`);
-  else if (bind === 'spiral') parts.push(`espiral ≈ ${e.coil.mm} mm`);
-  else parts.push(`wire-o ≈ ${e.wireo.label} · espiral ≈ ${e.coil.mm} mm`);
-  if (bind === 'staple' && !e.multipleOf4) parts.push('livreto: use múltiplo de 4 páginas');
-  el.textContent = parts.join(' · ') + '. Estimativa — confira com o papel real.';
+  const mm = v => v.toFixed(1).replace('.', ',');
+  let t = `${n} páginas em ${e.sheets} ${e.sheets === 1 ? 'folha' : 'folhas'} · miolo com cerca de ${mm(e.thicknessMm)} mm`;
+  if (bind === 'wireo') t += ` · garra wire-o ${e.wireo.label}`;
+  else if (bind === 'spiral') t += ` · espiral de ${e.coil.mm} mm`;
+  if (bind === 'staple' && !e.multipleOf4) t += ' · para grampear, use páginas em múltiplo de 4';
+  el.textContent = t + '.';
 }
 
 /* editor dos rótulos fixos das páginas ("Textos das páginas") */
