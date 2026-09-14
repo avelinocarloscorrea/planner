@@ -182,18 +182,22 @@ function renderWizCover(grid) {
   const filt = document.createElement('div'); filt.className = 'grp wiz-coverFilt';
   filt.innerHTML = [['name', 'Com nome'], ['classic', 'Clássicas'], ['all', 'Todas']].map(([v, l]) => `<button type="button" class="chip${d.coverFilter === v ? ' on' : ''}" data-f="${v}">${l}</button>`).join('');
   const gal = document.createElement('div'); gal.className = 'wiz-coverGal';
-  grid.append(form, filt, gal);
+  const col = document.createElement('div'); col.className = 'wiz-coverR';
+  col.append(filt, gal);
+  grid.append(form, col);
   const allStyles = PAGE_TYPES.cover.fields.find(f => f.k === 'style').options;
   filt.addEventListener('click', e => {
     const b = e.target.closest('[data-f]'); if (!b) return;
     d.coverFilter = b.dataset.f; filt.querySelectorAll('[data-f]').forEach(x => x.classList.toggle('on', x === b)); paint();
   });
   const paint = () => {
+    if (!gal.isConnected) return;
     const styles = allStyles.filter(o => d.coverFilter === 'all' || (d.coverFilter === 'name') === /^name/.test(o.v));
     gal.innerHTML = styles.map(o => `<button type="button" class="tpl-card tpl-card--cover${d.cover.style === o.v ? ' on' : ''}" data-st="${esc(o.v)}"><span class="tpl-card__thumb">${wizCoverThumb(d, o.v)}</span><span class="tpl-card__name">${esc(o.label.replace(/\s*\(.*\)$/, ''))}</span></button>`).join('');
     bigPrev();
   };
-  const bigPrev = () => { const doc = wizDoc(d); const [W, H] = withTemplateState(doc, () => paperWH()); $('#wiz_bigprev').innerHTML = pairThumbHTML(wizCoverSVG(d, d.cover.style), null, W, H); };
+  // as prévias chegam depois de carregar enfeites: se a pessoa já avançou de passo, não há onde pintar
+  const bigPrev = () => { const host = $('#wiz_bigprev'); if (!host) return; const doc = wizDoc(d); const [W, H] = withTemplateState(doc, () => paperWH()); host.innerHTML = pairThumbHTML(wizCoverSVG(d, d.cover.style), null, W, H); };
   gal.addEventListener('click', e => {
     const b = e.target.closest('[data-st]'); if (!b) return;
     d.cover.style = b.dataset.st;
@@ -226,9 +230,10 @@ function renderWizExtras(grid) {
       <p class="hint">A ilustração entra nas seções com várias páginas. Na folha você move, aumenta, troca a cor ou exclui.</p>
     </div><div class="wiz-bigprev" id="wiz_extprev"></div>`;
   const prev = () => {
+    const host = $('#wiz_extprev'); if (!host) return;
     const doc = wizDoc(d); const [W, H] = withTemplateState(doc, () => paperWH());
     const back = withTemplateState(doc, () => { const pages = expand(); const bi = representativePage(pages); return bi > 0 ? exportPageSVG(pages, bi, pages.length) : null; });
-    $('#wiz_extprev').innerHTML = pairThumbHTML(wizCoverSVG(d, d.cover.style), back, W, H);
+    host.innerHTML = pairThumbHTML(wizCoverSVG(d, d.cover.style), back, W, H);
     $('#wiz_artPrev').innerHTML = d.art ? EPArt.svg(d.art, '#35594d') : '';
   };
   grid.addEventListener('click', e => {
@@ -259,6 +264,7 @@ function renderWizLook(grid) {
   const prev = () => {
     const doc = wizDoc(d); const [W, H] = withTemplateState(doc, () => paperWH());
     const back = withTemplateState(doc, () => { const pages = expand(); const bi = representativePage(pages); return bi > 0 ? exportPageSVG(pages, bi, pages.length) : null; });
+    if (!$('#wiz_lookprev')) return;
     $('#wiz_lookprev').innerHTML = pairThumbHTML(wizCoverSVG(d, d.cover.style), back, W, H);
   };
   grid.addEventListener('click', e => {
