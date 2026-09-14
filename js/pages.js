@@ -38,7 +38,7 @@ let HEAD_FAM = 'sans';   // família dos títulos (engine.js ajusta por página)
 let HEAD_EL = null;      // { o, ctx, done } — o título da seção vira elemento editável na folha
 // título que sempre cabe: encolhe até min, depois trunca.
 function heading(pen, str, x, y, maxW, startPt, minPt, o) {
-  let fam = (o && o.family) || HEAD_FAM, bold = true;
+  let fam = (o && o.family) || HEAD_FAM, bold = true, P = pen;
   const ed = HEAD_EL && !HEAD_EL.done && String(str) === String(HEAD_EL.o.title) ? HEAD_EL : null;
   if (ed) {
     ed.done = true;
@@ -48,6 +48,7 @@ function heading(pen, str, x, y, maxW, startPt, minPt, o) {
     if (f.fam) fam = f.fam;
     if (f.bold === false) bold = false;
     o = Object.assign({}, o, f.color ? { color: f.color } : null);
+    P = elPen(pen, f);
   }
   const size = pen.fitText(str, maxW, startPt, minPt || startPt * 0.6, bold, fam);
   let s = String(str), lim = maxW * 0.98;
@@ -55,10 +56,10 @@ function heading(pen, str, x, y, maxW, startPt, minPt, o) {
     while (s.length > 1 && pen.textWidth(s + '…', size, bold, fam) > lim) s = s.slice(0, -1);
     s = s.replace(/[ ·–-]+$/, '') + '…';
   }
-  pen.text(s, x, y, Object.assign({ size, font: bold ? 'bold' : undefined, baseline: 'top' }, o, { family: fam }));
+  P.text(s, x, y, Object.assign({ size, font: bold ? 'bold' : undefined, baseline: 'top' }, o, { family: fam }));
   if (ed) {
-    const tw = pen.textWidth(s, size, bold, fam), al = o && o.align;
-    elHit(ed.ctx, 'title', 'Título', 'text', al === 'c' ? x - tw / 2 : al === 'r' ? x - tw : x, y, tw, size / PT * 1.2);
+    const tw = P.textWidth(s, size, bold, fam), al = o && o.align;
+    elHit(ed.ctx, 'title', 'Título', 'text', al === 'c' ? x - tw / 2 : al === 'r' ? x - tw : x, y, tw, size / PT * 1.2, P);
   }
   return size;
 }

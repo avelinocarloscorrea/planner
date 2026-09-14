@@ -45,6 +45,7 @@ $('#st_print').onclick = () => openExportDlg();
 
 /* ================= tela inicial (galeria) ================= */
 const TPL_CATS = [
+  { id: 'estilo', label: 'Com estilo' },
   { id: 'agenda', label: 'Agendas' },
   { id: 'planner', label: 'Planners' },
   { id: 'caderno', label: 'Cadernos' },
@@ -53,6 +54,7 @@ const TPL_CAT = {
   semanal: 'agenda', diario: 'agenda', executiva: 'agenda',
   'semana-dupla': 'agenda', universitario: 'caderno', brochura: 'caderno', desenho: 'caderno',
   bujo: 'caderno', pautado: 'caderno', estudos: 'caderno', quadriculado: 'caderno', musica: 'caderno', projetos: 'caderno', 'bloco-notas': 'caderno',
+  'rosa-poa': 'estilo', kraft: 'estilo', 'estudos-cor': 'estilo', 'agenda-marca': 'estilo', boho: 'estilo',
   refeicoes: 'planner', financeiro: 'planner', patrimonio: 'planner', 'cinco-min': 'planner', habitos: 'planner', bemestar: 'planner', leitura: 'planner',
 };
 

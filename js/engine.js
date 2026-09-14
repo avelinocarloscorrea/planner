@@ -78,6 +78,7 @@ function migrate(st) {
   s.exportDPI = clamp(Math.round(num(s.exportDPI, 300)), 150, 600);
   s.showSafeGuide = !!s.showSafeGuide;
   s.wm = cleanWatermark(s.wm);               // marca d'água (js/decor.js)
+  s.bg = EPBackground.clean(s.bg);            // fundo das páginas (núcleo: background.js)
   s.labels = (s.labels && typeof s.labels === 'object' && !Array.isArray(s.labels)) ? s.labels : {};
   for (const k of Object.keys(s.labels)) {
     if (typeof s.labels[k] !== 'string') { delete s.labels[k]; continue; }
@@ -118,6 +119,7 @@ function migrate(st) {
     // edição na folha: ajustes por elemento e elementos livres (js/decor.js)
     const el = cleanSheetEl(src.el); if (el) sec.opts.el = el;
     const ex = cleanExtras(src.extras); if (ex) sec.opts.extras = ex;
+    if (src.pageBg && src.pageBg.kind && src.pageBg.kind !== 'none') sec.opts.pageBg = EPBackground.clean(src.pageBg);   // fundo só desta seção
     // página personalizada: valida/migra a grade de blocos (schema versionado)
     if (raw.type === 'custom') {
       sec.opts.layout = (typeof EPBlocks !== 'undefined')
@@ -506,6 +508,9 @@ function drawPageInto(pen, pd, idx, opt = {}) {
   const clipBox = isFull
     ? { x: -ctx.bleed, y: -ctx.bleed, w: W + 2 * ctx.bleed, h: H + 2 * ctx.bleed }
     : { x: box.x - CP, y: box.y - CP, w: box.w + 2 * CP, h: box.h + 2 * CP };
+  // fundo (cor, degradê, estampa ou foto): o da seção ou o do documento
+  const pbg = o.pageBg && o.pageBg.kind && o.pageBg.kind !== 'none' ? o.pageBg : s.bg;
+  if (pd.type !== 'calibration' && EPBackground.active(pbg)) EPBackground.draw(pen, -ctx.bleed, -ctx.bleed, W + 2 * ctx.bleed, H + 2 * ctx.bleed, pbg, s.paperBg);
   // marca d'água: por baixo de tudo, recortada na página
   const wm = s.wm;
   if (wm && wm.on && pd.type !== 'calibration' && (!isFull || wm.covers)) {
@@ -620,7 +625,7 @@ function pageSig(idx, pd) {
     s.pageNumber, s.pageNumberStart, s.pageNumberSkip, s.pageNumberTotal, s.pageNumberPrefix, s.pageNumberSize,
     s.showPunch, s.showSafeGuide, s.highlightWeekends, s.footerText, s.headingFont,
     s.year, s.startDate, s.weekStart, s.customW, s.customH,
-    s.holUF, s.holNacional, s.holFacultativo, s.holComemorativa, s.events, cheapOptsSig({ wm: s.wm })].join('|');
+    s.holUF, s.holNacional, s.holFacultativo, s.holComemorativa, s.events, cheapOptsSig({ wm: s.wm, bg: s.bg })].join('|');
 }
 function buildSVG(idx, pd, total) {
   const [W, H] = paperWH();

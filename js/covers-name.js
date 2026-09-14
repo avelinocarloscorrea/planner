@@ -18,11 +18,11 @@ function nmText(pen, ctx, o, key, label, str, x, y, st) {
   const tr = st.tracking || 0;
   let size = st.maxW ? pen.fitText(str, st.maxW - tr * str.length, st.size, st.minSize || st.size * 0.35, bold, fam) : st.size;
   size *= f.s;
-  const X = x + f.dx, Y = y + f.dy, al = st.align || 'c', bl = st.baseline || 'middle';
-  pen.text(str, X, Y, { size, family: fam, font: bold ? 'bold' : st.italic ? 'it' : undefined, color: f.color || st.color,
+  const X = x + f.dx, Y = y + f.dy, al = st.align || 'c', bl = st.baseline || 'middle', P = elPen(pen, f);
+  P.text(str, X, Y, { size, family: fam, font: bold ? 'bold' : st.italic ? 'it' : undefined, color: f.color || st.color,
     align: al, baseline: bl, tracking: tr ? tr * f.s : undefined });
-  const w = pen.textWidth(str, size, bold, fam) + (tr ? (str.length - 1) * tr * f.s : 0), h = size / PT * 1.2;
-  elHit(ctx, key, label, 'text', al === 'c' ? X - w / 2 : al === 'r' ? X - w : X, bl === 'middle' ? Y - h / 2 : bl === 'top' ? Y : Y - h * 0.8, w, h);
+  const w = P.textWidth(str, size, bold, fam) + (tr ? (str.length - 1) * tr * f.s : 0), h = size / PT * 1.2;
+  elHit(ctx, key, label, 'text', al === 'c' ? X - w / 2 : al === 'r' ? X - w : X, bl === 'middle' ? Y - h / 2 : bl === 'top' ? Y : Y - h * 0.8, w, h, P);
   return { size, w, h };
 }
 // enfeite do catálogo (move/aumenta/recolore/oculta como elemento "orn")
@@ -30,8 +30,9 @@ function nmArt(pen, ctx, o, id, cx, cy, w, h, color) {
   const f = elFx(o, 'orn');
   if (f.hide || !pen.art) return;
   const W = w * f.s, H = h * f.s, X = cx + f.dx - W / 2, Y = cy + f.dy - H / 2;
-  pen.art(id, X, Y, W, H, { color: f.color || color });
-  elHit(ctx, 'orn', 'Enfeite', 'art', X, Y, W, H);
+  const P = elPen(pen, f);
+  P.art(id, X, Y, W, H, { color: f.color || color });
+  elHit(ctx, 'orn', 'Enfeite', 'art', X, Y, W, H, P);
 }
 function nmPage(ctx) {
   const b = ctx.bleed || 0, W = ctx.pageW || 148, H = ctx.pageH || 210;
@@ -62,12 +63,13 @@ const COVER_NAME_STYLES = {
     const size = Math.min(...words.map(w => pen.fitText(w.toUpperCase(), box.w, 60, 16, bold, fam))) * f.s, lh = size / PT * 1.02;
     const x0 = box.x + f.dx, y0 = bandH + P.H * 0.1 + f.dy;
     let wmax = 0;
+    const NP = elPen(pen, f);
     words.forEach((w, i) => {
       const s = w.toUpperCase();
-      pen.text(s, x0, y0 + i * lh, { size, family: fam, font: bold ? 'bold' : undefined, color: f.color || ctx.ink, baseline: 'top' });
-      wmax = Math.max(wmax, pen.textWidth(s, size, bold, fam));
+      NP.text(s, x0, y0 + i * lh, { size, family: fam, font: bold ? 'bold' : undefined, color: f.color || ctx.ink, baseline: 'top' });
+      wmax = Math.max(wmax, NP.textWidth(s, size, bold, fam));
     });
-    elHit(ctx, 'name', 'Nome', 'text', x0, y0, wmax, words.length * lh);
+    elHit(ctx, 'name', 'Nome', 'text', x0, y0, wmax, words.length * lh, NP);
   },
   // inicial gigante em tom claro, nome em caligrafia por cima
   nameInitial(pen, box, o, ctx) {

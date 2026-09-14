@@ -17,6 +17,8 @@ const SHEET_ICON = {
   text: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6V4h14v2M12 4v16M9 20h6"/></svg>',
   art: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20c-4-3-8-6-8-10a4 4 0 017.5-2A4 4 0 0120 10c0 4-4 7-8 10z"/><path d="M18 2.5l.8 1.7 1.7.8-1.7.8L18 7.5l-.8-1.7-1.7-.8 1.7-.8z"/></svg>',
   image: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 17l-5-5-9 8"/></svg>',
+  bg: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15l6-6 12 12M14 3l7 7"/></svg>',
+  wm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="5.5" stroke-dasharray="2 2"/><path d="M9.5 12h5"/></svg>',
   panel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>',
 };
 
@@ -64,10 +66,14 @@ const sheetEditor = EPCanvasEdit.create({
     { a: 'text', label: 'Texto', icon: SHEET_ICON.text, title: 'Adicionar texto' },
     { a: 'art', label: 'Ilustração', icon: SHEET_ICON.art, title: 'Adicionar ilustração do catálogo' },
     { a: 'image', label: 'Imagem', icon: SHEET_ICON.image, title: 'Adicionar imagem do aparelho' },
+    { a: 'bg', label: 'Fundo', icon: SHEET_ICON.bg, title: 'Fundo das páginas' },
+    { a: 'wm', label: "Marca d'água", icon: SHEET_ICON.wm, title: "Marca d'água" },
     { a: 'panel', label: 'Ajustes', icon: SHEET_ICON.panel, title: 'Ajustes desta página' },
   ],
   add(pageEl, a) {
     const info = sheetPageInfo(pageEl); if (!info) return;
+    if (a === 'bg') { openBackgroundPop(info.sec); return; }
+    if (a === 'wm') { openWatermarkPop(); return; }
     if (a !== 'panel') { sheetAdd(a, info); return; }
     sheetEditor.clear();
     if (isMobile() && typeof mOpenTab === 'function') mOpenTab('secao');
@@ -82,11 +88,11 @@ const sheetEditor = EPCanvasEdit.create({
   get(pageEl, key) {
     const info = sheetPageInfo(pageEl); if (!info) return null;
     const o = info.sec.opts, e = (o.el && o.el[key]) || {};
-    const out = { dx: e.dx || 0, dy: e.dy || 0, s: e.s || 1, color: e.color || null, fam: e.fam || '', bold: e.bold == null ? null : e.bold };
+    const out = { ...EPTextFx.norm(e), fam: e.fam || '' };
     const x = sheetExtra(o, key);
     if (x) {
-      if (x.type === 'text') { out.text = x.text; out.textLabel = 'Texto'; out.multiline = true; out.maxlength = 400; }
-      out.removable = true; out.duplicable = true;
+      if (x.type === 'text') { out.text = x.text; out.textLabel = 'Texto'; out.multiline = true; out.maxlength = 400; out.alignable = true; }
+      out.removable = true; out.duplicable = true; out.layer = true;
       out.canReplace = x.type !== 'text';
       if (x.type === 'art') { const it = EPArt.get(x.art); out.colorable = !it || it.mono; }
     } else if (SHEET_TEXT_FIELD[key]) {
@@ -117,13 +123,10 @@ const sheetEditor = EPCanvasEdit.create({
       if (x) x.text = sanitizeText(patch.text, 400);
       else if (SHEET_TEXT_FIELD[key]) o[SHEET_TEXT_FIELD[key]] = sanitizeText(patch.text, key === 'text' ? 4000 : 80);
     }
-    const geo = {};
-    ['dx', 'dy', 's', 'color', 'fam', 'bold'].forEach(k => { if (k in patch) geo[k] = patch[k]; });
+    const geo = { ...patch }; delete geo.text;
     if (Object.keys(geo).length) {
       o.el = o.el || {};
-      const e = o.el[key] = { ...(o.el[key] || {}), ...geo };
-      Object.keys(e).forEach(k => { if (e[k] === null || e[k] === '' || e[k] === undefined) delete e[k]; });
-      delete e.hide;
+      o.el[key] = EPTextFx.merge(o.el[key], { ...geo, hide: null });
     }
     sheetRedraw(info, opts && opts.live);
   },
@@ -134,6 +137,10 @@ const sheetEditor = EPCanvasEdit.create({
     else if (name === 'hide') { o.el = o.el || {}; o.el[key] = { ...(o.el[key] || {}), hide: true }; toast('Elemento oculto — para mostrar de novo use “Elementos na folha” nos ajustes.'); }
     else if (name === 'delete' && key === 'bg') { delete o.bg; delete o.bgSrc; delete o.bgEdit; }
     else if (name === 'delete') { o.extras = (o.extras || []).filter(z => 'x:' + z.id !== key); if (o.el) delete o.el[key]; }
+    else if ((name === 'front' || name === 'back') && x) {
+      const i = o.extras.indexOf(x); o.extras.splice(i, 1);
+      if (name === 'front') o.extras.push(x); else o.extras.unshift(x);
+    }
     else if (name === 'duplicate' && x) {
       const id = uid(), e = (o.el && o.el[key]) || {};
       o.extras = [...o.extras, { ...x, id }];

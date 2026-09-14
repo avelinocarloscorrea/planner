@@ -37,11 +37,11 @@ function coverClassic(pen, box, o, ctx) {
   const posFrac = o.titlePos === 'top' ? 0.27 : o.titlePos === 'bottom' ? 0.64 : null;
 
   // texto espaçado (tracking) com centralização correta nas duas canetas
-  const spaced = (str, x, y, size, color, align, trk, extra = {}) => {
+  const spaced = (str, x, y, size, color, align, trk, extra = {}, P = pen) => {
     str = String(str); if (!str) return;
-    const w = pen.textWidth(str, size, extra.font === 'bold', extra.family) + Math.max(0, str.length - 1) * trk;
+    const w = P.textWidth(str, size, extra.font === 'bold', extra.family) + Math.max(0, str.length - 1) * trk;
     const lx = align === 'c' ? x - w / 2 : align === 'r' ? x - w : x;
-    pen.text(str, lx, y, { size, color, align: 'l', tracking: trk, baseline: extra.baseline || 'middle', font: extra.font, family: extra.family });
+    P.text(str, lx, y, { size, color, align: 'l', tracking: trk, baseline: extra.baseline || 'middle', font: extra.font, family: extra.family });
   };
   // bloco do título: maior tamanho com até `maxLines` linhas cabendo em maxW
   const titleFit = (maxW, startPt, minPt, maxLines) => {
@@ -61,29 +61,31 @@ function coverClassic(pen, box, o, ctx) {
     const end = yTop + FT.dy + t.lines.length * t.lh * FT.s - (t.lh * FT.s - t.lh) * t.lines.length / 2;
     const size = t.size * FT.s, lh = t.lh * FT.s, X = x + FT.dx, Y0 = yTop + FT.dy - (lh - t.lh) * t.lines.length / 2;
     let y = Y0 + lh / 2, wmax = 0;
-    t.lines.forEach(l => { wmax = Math.max(wmax, pen.textWidth(l, size, heavyT, famT)); pen.text(l, X, y, { size, font: heavyT ? 'bold' : undefined, color: FT.color || color, align, baseline: 'middle', family: famT }); y += lh; });
-    elHit(ctx, 'title', 'Título', 'text', align === 'c' ? X - wmax / 2 : align === 'r' ? X - wmax : X, Y0, wmax, t.lines.length * lh);
+    const P = elPen(pen, FT);
+    t.lines.forEach(l => { wmax = Math.max(wmax, P.textWidth(l, size, heavyT, famT)); P.text(l, X, y, { size, font: heavyT ? 'bold' : undefined, color: FT.color || color, align, baseline: 'middle', family: famT }); y += lh; });
+    elHit(ctx, 'title', 'Título', 'text', align === 'c' ? X - wmax / 2 : align === 'r' ? X - wmax : X, Y0, wmax, t.lines.length * lh, P);
     return end;
   };
   // subtítulo (texto espaçado em caixa alta)
   const subText = (x, y, size, color, align, trk) => {
     const f = elFx(o, 'subtitle'); if (f.hide || !sub) return;
     const str = sub.toUpperCase(), S = size * f.s, X = x + f.dx, Y = y + f.dy, fm = f.fam || undefined, bd = f.bold ? 'bold' : undefined;
-    const w = pen.textWidth(str, S, !!f.bold, fm) + Math.max(0, str.length - 1) * trk * f.s;
-    spaced(str, X, Y, S, f.color || color, align, trk * f.s, { font: bd, family: fm });
-    elHit(ctx, 'subtitle', 'Subtítulo', 'text', align === 'c' ? X - w / 2 : align === 'r' ? X - w : X, Y - S / PT * 0.62, w, S / PT * 1.24);
+    const P = elPen(pen, f);
+    const w = P.textWidth(str, S, !!f.bold, fm) + Math.max(0, str.length - 1) * trk * f.s;
+    spaced(str, X, Y, S, f.color || color, align, trk * f.s, { font: bd, family: fm }, P);
+    elHit(ctx, 'subtitle', 'Subtítulo', 'text', align === 'c' ? X - w / 2 : align === 'r' ? X - w : X, Y - S / PT * 0.62, w, S / PT * 1.24, P);
   };
   const ownerLine = (x0, y0, align, w0, color, lineCol) => {
     const f = elFx(o, 'owner');
     if (o.showOwner === false || f.hide) return;
-    const k = f.s, x = x0 + f.dx, y = y0 + f.dy, w = w0 * k;
-    spaced(ctx.L('pertenceA').toUpperCase(), x, y, 7.5 * k, f.color || color, align, 1 * k);
+    const k = f.s, x = x0 + f.dx, y = y0 + f.dy, w = w0 * k, P = elPen(pen, f);
+    spaced(ctx.L('pertenceA').toUpperCase(), x, y, 7.5 * k, f.color || color, align, 1 * k, {}, P);
     const nameFam = f.fam || (fam === 'mono' ? 'mono' : 'serif');
     let wName = 0;
-    if (o.owner) { wName = pen.textWidth(String(o.owner), 12 * k, false, nameFam); pen.text(String(o.owner), x, y + 6.5 * k, { size: 12 * k, font: f.bold ? 'bold' : 'it', color: f.color || (dark ? paper : ctx.ink), align, baseline: 'top', family: nameFam }); }
+    if (o.owner) { wName = P.textWidth(String(o.owner), 12 * k, false, nameFam); P.text(String(o.owner), x, y + 6.5 * k, { size: 12 * k, font: f.bold ? 'bold' : 'it', color: f.color || (dark ? paper : ctx.ink), align, baseline: 'top', family: nameFam }); }
     const bw = Math.max(w, wName), bx = align === 'c' ? x - bw / 2 : align === 'r' ? x - bw : x;
     if (!o.owner) pen.line(bx, y + 11 * k, bx + w, y + 11 * k, { w: 0.3, color: lineCol || ctx.hair });
-    elHit(ctx, 'owner', 'Nome', 'text', bx, y - 3 * k, bw, 16 * k);
+    elHit(ctx, 'owner', 'Nome', 'text', bx, y - 3 * k, bw, 16 * k, P);
   };
 
   // ---------- fundo sólido / imagem ----------
@@ -106,17 +108,19 @@ function coverClassic(pen, box, o, ctx) {
     else if (o.logoPos === 'below') ly = defaultY + 8;
     const leftAl = ['modern', 'split', 'left'].includes(style);
     const lx = (leftAl ? box.x + inset : cx - lw / 2) + fl.dx, lyy = Math.max(box.y + 2, ly) + fl.dy;
-    pen.image(o.logo, lx, lyy, lw, lh, { fit: 'meet' });
-    elHit(ctx, 'logo', 'Logo', 'image', lx, lyy, lw, lh);
+    const P = elPen(pen, fl);
+    P.image(o.logo, lx, lyy, lw, lh, { fit: 'meet' });
+    elHit(ctx, 'logo', 'Logo', 'image', lx, lyy, lw, lh, P);
   };
   const monogram = (y0) => {
     if (!o.monogram || o.logo) return false;
     const mg = monogramOf(o.owner) || monogramOf(o.title); if (!mg) return false;
     const f = elFx(o, 'monogram'); if (f.hide) return true;
     const r = Math.min(12, W * 0.085) * f.s, x = cx + f.dx, y = y0 + f.dy;
-    pen.circle(x, y, r, { stroke: f.color || acc, w: 0.45 });
-    pen.text(mg, x, y, { size: r * 1.15, color: f.color || fg, align: 'c', baseline: 'middle', family: f.fam || 'serif', font: f.bold ? 'bold' : undefined });
-    elHit(ctx, 'monogram', 'Monograma', 'text', x - r, y - r, 2 * r, 2 * r);
+    const P = elPen(pen, f);
+    P.circle(x, y, r, { stroke: f.color || acc, w: 0.45 });
+    P.text(mg, x, y, { size: r * 1.15, color: f.color || fg, align: 'c', baseline: 'middle', family: f.fam || 'serif', font: f.bold ? 'bold' : undefined });
+    elHit(ctx, 'monogram', 'Monograma', 'text', x - r, y - r, 2 * r, 2 * r, P);
     return true;
   };
 
@@ -172,8 +176,9 @@ function coverClassic(pen, box, o, ctx) {
     const fy = elFx(o, 'year');
     if (!fy.hide) {
       const bs = bigSize * fy.s, bf = fy.fam || 'sans', bx = cx + fy.dx, by = bigY + fy.dy, bwid = pen.textWidth(big, bs, fy.bold !== false, bf);
-      pen.text(big, bx, by, { size: bs, font: fy.bold === false ? undefined : 'bold', color: fy.color || mixHex(ctx.accent, paper, 0.55), align: 'c', baseline: 'middle', family: bf });
-      elHit(ctx, 'year', 'Ano', 'text', bx - bwid / 2, by - bs / PT * 0.42, bwid, bs / PT * 0.84);
+      const P = elPen(pen, fy);
+      P.text(big, bx, by, { size: bs, font: fy.bold === false ? undefined : 'bold', color: fy.color || mixHex(ctx.accent, paper, 0.55), align: 'c', baseline: 'middle', family: bf });
+      elHit(ctx, 'year', 'Ano', 'text', bx - bwid / 2, by - bs / PT * 0.42, bwid, bs / PT * 0.84, P);
     }
     const t = titleFit(maxW, Math.min(30, W * 0.2), 12, 2);
     const top = bigY + bigSize * 0.42 / PT + 6;
@@ -312,8 +317,9 @@ function coverClassic(pen, box, o, ctx) {
     if (!f.hide) {
       const size = Math.min(160, W * 0.95) * f.s, mx = cx + f.dx, my = box.y + H * 0.38 + f.dy, mf = f.fam || 'serif';
       const mw = pen.textWidth(mg, size, false, mf);
-      pen.text(mg, mx, my, { size, color: f.color || tint(0.55), align: 'c', baseline: 'middle', family: mf, font: f.bold ? 'bold' : undefined });
-      elHit(ctx, 'monogram', 'Monograma', 'text', mx - mw / 2, my - size / PT * 0.4, mw, size / PT * 0.8);
+      const P = elPen(pen, f);
+      P.text(mg, mx, my, { size, color: f.color || tint(0.55), align: 'c', baseline: 'middle', family: mf, font: f.bold ? 'bold' : undefined });
+      elHit(ctx, 'monogram', 'Monograma', 'text', mx - mw / 2, my - size / PT * 0.4, mw, size / PT * 0.8, P);
     }
     const t = titleFit(W - 2 * inset - 10, Math.min(24, W * 0.15), 11, 2);
     const top = box.y + H * (posFrac != null ? posFrac : 0.66);
@@ -416,8 +422,9 @@ PAGE_DRAW.tab = (pen, box, o, ctx) => {
   const size = pen.fitText(t, W - 24, Math.min(30, W * 0.14), 12, true, famT) * ft.s;
   if (!ft.hide) {
     const X = cxT + ft.dx, Y = cy + ft.dy, tw = pen.textWidth(t, size, ft.bold !== false, famT) + Math.max(0, t.length - 1) * 1.5 * ft.s;
-    pen.text(t, X, Y, { size, font: ft.bold === false ? undefined : 'bold', color: ft.color || ctx.ink, align: 'c', baseline: 'middle', tracking: 1.5 * ft.s, family: famT });
-    elHit(ctx, 'title', 'Título', 'text', X - tw / 2, Y - size / PT * 0.6, tw, size / PT * 1.2);
+    const P = elPen(pen, ft);
+    P.text(t, X, Y, { size, font: ft.bold === false ? undefined : 'bold', color: ft.color || ctx.ink, align: 'c', baseline: 'middle', tracking: 1.5 * ft.s, family: famT });
+    elHit(ctx, 'title', 'Título', 'text', X - tw / 2, Y - size / PT * 0.6, tw, size / PT * 1.2, P);
   }
 };
 
@@ -434,16 +441,18 @@ PAGE_DRAW.quote = (pen, box, o, ctx) => {
   const qx = cx + fq.dx;
   if (!fq.hide) {
     let wq = 0;
-    lines.forEach(l => { wq = Math.max(wq, pen.textWidth(l, size, !!fq.bold, famQ)); pen.text(l, qx, ty, { size, font: fq.bold ? 'bold' : 'it', color: fq.color || ctx.ink, align: 'c', baseline: 'middle', family: famQ }); ty += lh; });
-    elHit(ctx, 'text', 'Frase', 'text', qx - wq / 2, ty - lines.length * lh - lh / 2, wq, lines.length * lh);
+    const P = elPen(pen, fq);
+    lines.forEach(l => { wq = Math.max(wq, P.textWidth(l, size, !!fq.bold, famQ)); P.text(l, qx, ty, { size, font: fq.bold ? 'bold' : 'it', color: fq.color || ctx.ink, align: 'c', baseline: 'middle', family: famQ }); ty += lh; });
+    elHit(ctx, 'text', 'Frase', 'text', qx - wq / 2, ty - lines.length * lh - lh / 2, wq, lines.length * lh, P);
   } else ty += lines.length * lh;
   if (o.author) {
     const fa = elFx(o, 'author');
     if (!fa.hide) {
       const ax = cx + fa.dx, ay = ty - fq.dy + fa.dy, as = 9 * fa.s, str = '— ' + String(o.author), aw = pen.textWidth(str, as, !!fa.bold, fa.fam || undefined);
-      pen.line(ax - 14 * fa.s, ay + 3, ax + 14 * fa.s, ay + 3, { w: 0.4, color: ctx.accent });
-      pen.text(str, ax, ay + 9, { size: as, color: fa.color || ctx.faint, align: 'c', baseline: 'top', family: fa.fam || undefined, font: fa.bold ? 'bold' : undefined });
-      elHit(ctx, 'author', 'Autor', 'text', ax - aw / 2, ay + 1, aw, as / PT * 1.2 + 8);
+      const P = elPen(pen, fa);
+      P.line(ax - 14 * fa.s, ay + 3, ax + 14 * fa.s, ay + 3, { w: 0.4, color: ctx.accent });
+      P.text(str, ax, ay + 9, { size: as, color: fa.color || ctx.faint, align: 'c', baseline: 'top', family: fa.fam || undefined, font: fa.bold ? 'bold' : undefined });
+      elHit(ctx, 'author', 'Autor', 'text', ax - aw / 2, ay + 1, aw, as / PT * 1.2 + 8, P);
     }
   }
 };
