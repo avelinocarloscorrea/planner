@@ -6,25 +6,46 @@
 
 /* ================== imposição (montagem na folha) ==================
    Traduz a lista de páginas do miolo num conjunto de FOLHAS de saída.
-   - real   : 1 folha = 1 página do miolo (+ sangria). Para a gráfica.
-   - fit    : 1 página do miolo centralizada na folha escolhida + marcas de corte.
-   - 2up    : 2 páginas por folha, lado a lado, com linha de corte no meio.
-   - booklet: livreto (dobradinha) — 4 págs/folha, frente e verso, dobrar ao meio. */
+   Toda a matemática vem de vendor/core/print.js (EPPrint) — a mesma do
+   Calendar Studio.
+   - real   : 1 folha = 1 página no tamanho final. Sangria opcional; com marcas
+              de corte a folha ganha uma faixa (slug) para as marcas ficarem
+              FORA da sangria. TrimBox/BleedBox no PDF.
+   - fit    : 1 página centralizada numa folha comum + marcas de corte.
+   - 2up    : 2 páginas por folha — "exato" (100 %) ou "reduzir para caber".
+   - booklet: livreto (dobra ao meio) com compensação de creep.
+   Duplex (2up frente e verso, livreto): o verso é montado para a borda de
+   virada escolhida (curta/longa) — se a virada espelha no outro eixo, a folha
+   do verso é girada 180°.
+   Cada folha: { slots:[{src,ox,oy,sc,rot,clip}], marks:[[x1,y1,x2,y2]…], foldX, foldY, trimBox, bleedBox } */
 const OUT_SHEETS = { a4: [210, 297], letter: [215.9, 279.4], a3: [297, 420] };
 function outSheet(id) { return OUT_SHEETS[id] || OUT_SHEETS.a4; }
+
+// a saída é frente e verso? (define o lado da lombada/furo em cada página)
+function outputDuplex() {
+  const s = state.settings, eff = effectiveExportMode();
+  if (eff.mode === 'booklet') return true;
+  if (eff.mode === '2up') return s.twoUpOrder === 'duplex';
+  return !!s.mirrorMargins;
+}
 
 function impositionPlan(nPages) {
   const s = state.settings, [W, H] = paperWH();
   const eff = effectiveExportMode();
   const mode = ['real', 'fit', '2up', 'booklet'].includes(eff.mode) ? eff.mode : 'real';
+  const P = EPPrint;
+  const blank = () => ({ slots: [], marks: [], foldX: null, foldY: null });
 
   if (mode === 'real') {
-    const bleed = Math.max(0, s.bleedMm || 0);
+    const bleed = Math.max(0, s.bleedMm || 0), marks = !!s.cropMarks;
+    const bx = P.boxes(W, H, { bleed, marks, safe: s.safeMm });
+    const segs = marks ? P.markSegments(bx.trim, { bleed }) : [];
+    if (marks && s.registration) segs.push(...registrationSegs(bx));
+    const mk = i => ({ slots: [{ src: i, ox: bx.slug, oy: bx.slug, sc: 1 }], marks: segs, foldX: null, foldY: null, trimBox: bx.trim, bleedBox: bx.bleed });
     const sheets = [];
-    for (let i = 0; i < nPages; i++)
-      sheets.push({ slots: [{ src: i, ox: bleed, oy: bleed, sc: 1 }], trims: [], foldX: null, foldY: null });
-    if (s.mirrorMargins && sheets.length % 2) sheets.push({ slots: [], trims: [], foldX: null, foldY: null });
-    return { mode, paper: true, bleed, sheetW: W + 2 * bleed, sheetH: H + 2 * bleed, sheets };
+    for (let i = 0; i < nPages; i++) sheets.push(mk(i));
+    if (s.mirrorMargins && sheets.length % 2) sheets.push({ ...blank(), trimBox: bx.trim, bleedBox: bx.bleed, marks: segs });
+    return { mode, paper: true, bleed, slug: bx.slug, sheetW: bx.media.w, sheetH: bx.media.h, sheets, duplex: false, boxes: bx };
   }
 
   const B = outSheet(eff.sheet);
@@ -32,81 +53,122 @@ function impositionPlan(nPages) {
   if (mode === 'fit') {
     let sw = B[0], sh = B[1];
     if (W > sw || H > sh) { sw = B[1]; sh = B[0]; }                 // gira a folha
-    const sc = Math.min(1, (sw - 6) / W, (sh - 6) / H);
+    // sangria cabe se sobrar espaço; marcas sempre fora dela
+    const bleed = Math.max(0, s.bleedMm || 0);
+    const reach = P.markReach();
+    const sc = Math.min(1, (sw - 2 * (bleed + reach)) / W, (sh - 2 * (bleed + reach)) / H);
     const pw = W * sc, ph = H * sc, ox = (sw - pw) / 2, oy = (sh - ph) / 2;
+    const trim = { x: ox, y: oy, w: pw, h: ph };
+    const bl = { x: ox - bleed * sc, y: oy - bleed * sc, w: pw + 2 * bleed * sc, h: ph + 2 * bleed * sc };
+    const segs = P.markSegments(trim, { bleed: bleed * sc });
     const sheets = [];
-    for (let i = 0; i < nPages; i++)
-      sheets.push({ slots: [{ src: i, ox, oy, sc }], trims: [[ox, oy, pw, ph]], foldX: null, foldY: null });
-    if (s.mirrorMargins && sheets.length % 2) sheets.push({ slots: [], trims: [], foldX: null, foldY: null });
-    return { mode, sheetW: sw, sheetH: sh, sheets };
+    for (let i = 0; i < nPages; i++) sheets.push({ slots: [{ src: i, ox, oy, sc }], marks: segs, foldX: null, foldY: null, trimBox: trim, bleedBox: bl });
+    if (s.mirrorMargins && sheets.length % 2) sheets.push(blank());
+    return { mode, bleed, sheetW: sw, sheetH: sh, sheets, duplex: false, scale: sc };
   }
 
   // 2up / booklet — duas páginas por folha
-  const portrait = H >= W;
-  let sw, sh, cols, rows;
-  if (portrait) { sw = Math.max(B[0], B[1]); sh = Math.min(B[0], B[1]); cols = 2; rows = 1; }
-  else { sw = Math.min(B[0], B[1]); sh = Math.max(B[0], B[1]); cols = 1; rows = 2; }
-  const sc = Math.min(1, (sw - 2) / (cols * W), (sh - 2) / (rows * H));
-  const pw = W * sc, ph = H * sc, bw = cols * pw, bh = rows * ph;
-  const bx = (sw - bw) / 2, by = (sh - bh) / 2;
-  const pos = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) pos.push({ ox: bx + c * pw, oy: by + r * ph });
-  const foldX = cols === 2 ? sw / 2 : null;
-  const foldY = rows === 2 ? sh / 2 : null;
-  // Marcas: se sobra ~7 mm de folha, L nos 4 cantos do bloco (para aparar).
-  // Se o bloco quase preenche a folha (2×A5 ≈ A4), NÃO desenha marca de canto
-  // nenhuma — a folha é só dobrada/cortada ao meio na linha central.
-  const block = [bx, by, bw, bh];
-  const outside = (bx >= 7 && by >= 7);
-  const snug = (bx < 4 && by < 4);
-  const trims = outside ? [block] : [];
-  const ticks = (outside || snug) ? null : block;
-  const slot = (src, k) => (src != null && src >= 0 && src < nPages) ? { src, ox: pos[k].ox, oy: pos[k].oy, sc } : null;
-  const mk = (a, b) => ({ slots: [slot(a, 0), slot(b, 1)].filter(Boolean), trims, ticks, foldX, foldY });
-
+  const t = P.twoUp(B[0], B[1], W, H, { fit: s.twoUpFit, margin: 4 });
+  const sw = t.sheetW, sh = t.sheetH, sc = t.sc;
+  const pos = t.slots;
+  const block = t.block;
+  // marcas: se sobra folha em volta do bloco, marcas nos cantos (fora da arte);
+  // se o bloco preenche a folha (2×A5 = A4), só a linha de corte no meio.
+  const room = Math.min(block.x, block.y);
+  const segs = room >= P.markReach() ? P.markSegments(block, {}) : [];
+  // marcas das bordas internas (corte ao meio) nas margens
+  if (room >= P.markReach()) {
+    if (t.foldX != null) { segs.push([t.foldX, block.y - 1, t.foldX, block.y - 1 - P.MARK.len]); segs.push([t.foldX, block.y + block.h + 1, t.foldX, block.y + block.h + 1 + P.MARK.len]); }
+    if (t.foldY != null) { segs.push([block.x - 1, t.foldY, block.x - 1 - P.MARK.len, t.foldY]); segs.push([block.x + block.w + 1, t.foldY, block.x + block.w + 1 + P.MARK.len, t.foldY]); }
+  }
+  const trimBoxes = pos.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
+  const slot = (src, k, extra) => (src != null && src >= 0 && src < nPages) ? Object.assign({ src, ox: pos[k].x, oy: pos[k].y, sc,
+    clip: { x: pos[k].x, y: pos[k].y, w: pos[k].w, h: pos[k].h } }, extra || {}) : null;
+  const mk = (a, b, ea, eb) => ({ slots: [slot(a, 0, ea), slot(b, 1, eb)].filter(Boolean), marks: segs, foldX: t.foldX, foldY: t.foldY,
+    trimBox: block, bleedBox: block, trimBoxes });
+  // verso: montado para virar como página de livro (espelho no eixo x). Se a
+  // virada escolhida espelha em y, a folha do verso gira 180°.
+  const rotateBack = P.duplexAxis(sw, sh, s.duplexFlip) === 'y';
+  const back = sheet => {
+    if (!rotateBack) return sheet;
+    sheet.slots.forEach(sl => {
+      const w = W * sl.sc, h = H * sl.sc;
+      sl.ox = sw - sl.ox - w; sl.oy = sh - sl.oy - h; sl.rot = 180;
+      if (sl.clip) sl.clip = { x: sw - sl.clip.x - sl.clip.w, y: sh - sl.clip.y - sl.clip.h, w: sl.clip.w, h: sl.clip.h };
+    });
+    return sheet;
+  };
+  // quando o 2 por folha é empilhado na vertical (página deitada), "lado de
+  // livro" é o eixo y: a regra de troca vale igual, só muda o eixo.
   const sheets = [];
   if (mode === '2up') {
     if (s.twoUpOrder === 'duplex') {
-      // Frente e verso sincronizados: o miolo é dividido ao meio (pilha
-      // esquerda = páginas 1..H1; pilha direita = H1+1..N). Cada folha A4 é
-      // impressa nos dois lados e cortada ao meio — as duas metades já saem
-      // com a ordem certa, sem precisar reempilhar nada.
-      // Depende de "virar pela borda curta" (mesma convenção do livreto):
-      // a virada espelha a folha esquerda/direita, então o verso troca de
-      // lado em relação à frente — por isso mk(rb, lb) e não mk(lb, rb).
+      // Frente e verso sincronizados: pilha esquerda = 1..H1, pilha direita =
+      // H1+1..N. Cada folha é impressa dos dois lados e cortada ao meio — as
+      // metades já saem na ordem certa. No verso as posições trocam de lado
+      // (a virada espelha a folha).
       const H1 = Math.ceil(nPages / 2);
       const pairs = Math.ceil(H1 / 2);
       for (let k = 0; k < pairs; k++) {
-        const lf = 2 * k, lb = 2 * k + 1;             // pilha esquerda: recto/verso
-        const rf = H1 + 2 * k, rb = H1 + 2 * k + 1;   // pilha direita: recto/verso
-        sheets.push(mk(lf < H1 ? lf : null, rf));     // frente da folha
-        sheets.push(mk(rb, lb < H1 ? lb : null));     // verso — lados trocados
+        const lf = 2 * k, lb = 2 * k + 1, rf = H1 + 2 * k, rb = H1 + 2 * k + 1;
+        sheets.push(mk(lf < H1 ? lf : null, rf));
+        sheets.push(back(mk(rb, lb < H1 ? lb : null)));
       }
     } else if (s.twoUpOrder === 'seq') {
-      // sequencial: cada folha traz duas páginas seguidas (1-2, 3-4…).
       const Hn = Math.ceil(nPages / 2);
       for (let k = 0; k < Hn; k++) sheets.push(mk(2 * k, 2 * k + 1));
     } else {
-      // corte-e-empilhe: metade esquerda k, metade direita k+H; corte ao meio e
-      // ponha a pilha da direita embaixo da esquerda → ordem 1..N, sem intercalar.
+      // corte-e-empilhe: metade esquerda k, direita k+H; empilhe a direita sob a esquerda
       const Hn = Math.ceil(nPages / 2);
       for (let k = 0; k < Hn; k++) sheets.push(mk(k, k + Hn));
     }
   } else {
-    const Np = Math.max(4, Math.ceil(nPages / 4) * 4);
-    for (let k = 0; k < Np / 4; k++) {
-      sheets.push(mk(Np - 1 - 2 * k, 2 * k));       // frente da folha
-      sheets.push(mk(2 * k + 1, Np - 2 - 2 * k));   // verso da folha
+    // livreto: creep — as folhas internas avançam na borda de fora ao dobrar;
+    // a arte delas se desloca para a dobra pela espessura do papel.
+    const caliper = s.bookletCreep && typeof EPBinding !== 'undefined' ? EPBinding.sheetCaliperMm(s.bindPaperGsm, s.bindPaperKind) : 0;
+    const order = P.bookletOrder(nPages, { caliperMm: caliper });
+    // eixo da dobra: x (lado a lado) ou y (empilhado)
+    const alongX = t.cols === 2;
+    const shiftOf = (k, first) => {
+      const d = order.sides[k].shift;
+      return first ? (alongX ? { dx: d } : { dy: d }) : (alongX ? { dx: -d } : { dy: -d });
+    };
+    for (let k = 0; k < order.sides.length; k++) {
+      const sd = order.sides[k];
+      const e0 = shiftOf(k, true), e1 = shiftOf(k, false);
+      const sheet = mk(sd.left, sd.right);
+      sheet.slots.forEach((sl, i) => {
+        const e = (sl.src === sd.left) ? e0 : e1;
+        sl.ox += e.dx || 0; sl.oy += e.dy || 0; sl.creep = order.sides[k].shift;
+      });
+      sheets.push(sd.side === 'back' ? back(sheet) : sheet);
     }
   }
-  return { mode, sheetW: sw, sheetH: sh, sheets, duplex: mode === 'booklet' || (mode === '2up' && s.twoUpOrder === 'duplex') };
+  return { mode, sheetW: sw, sheetH: sh, sheets, scale: sc, overflow: t.overflow,
+    duplex: mode === 'booklet' || (mode === '2up' && s.twoUpOrder === 'duplex') };
+}
+// alvos de registro (círculo + cruz) no meio de cada lado, na faixa do slug
+function registrationSegs(bx) {
+  const r = 2.2, segs = [], c = (x, y) => {
+    segs.push([x - r - 1, y, x + r + 1, y], [x, y - r - 1, x, y + r + 1]);
+    const n = 20;
+    for (let i = 0; i < n; i++) {
+      const a0 = i / n * Math.PI * 2, a1 = (i + 1) / n * Math.PI * 2;
+      segs.push([x + r * Math.cos(a0), y + r * Math.sin(a0), x + r * Math.cos(a1), y + r * Math.sin(a1)]);
+    }
+  };
+  const off = (bx.bleed.x) / 2;                         // meio da faixa entre a folha e a sangria
+  c(bx.media.w / 2, off); c(bx.media.w / 2, bx.media.h - off);
+  c(off, bx.media.h / 2); c(bx.media.w - off, bx.media.h / 2);
+  return segs;
 }
 
 function sheetFileTag(s) {
   const eff = effectiveExportMode();
-  if (eff.mode === 'real') return '';
+  const color = s.pdfColor === 'cmyk' ? '-grafica-CMYK' : '';
+  if (eff.mode === 'real') return color;
   const sh = ({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4';
-  return '-' + sh + ({ fit: '', '2up': '-2up', booklet: '-livreto' }[eff.mode] || '');
+  return '-' + sh + ({ fit: '', '2up': '-2up', booklet: '-livreto' }[eff.mode] || '') + color;
 }
 function modeLabel(s) {
   const eff = effectiveExportMode();
@@ -114,65 +176,48 @@ function modeLabel(s) {
     '2up': 'duas por folha (cortar ao meio)', booklet: 'livreto — dobrar ao meio' })[eff.mode] || 'tamanho real';
   return eff.auto ? base + ' (automático)' : base;
 }
-// marcas em L nos 4 cantos de um retângulo (fora dele), ou ticks internos se
-// não houver folga, + linha de dobra/corte.
-function drawSheetMarks(pen, sheet, sheetW, sheetH) {
-  const L = 5, g = 2.2, o = { w: 0.15, color: '#000' };
-  (sheet.trims || []).forEach(([x, y, w, h]) => {
-    [[x, y, -1, -1], [x + w, y, 1, -1], [x, y + h, -1, 1], [x + w, y + h, 1, 1]].forEach(([px, py, dx, dy]) => {
-      pen.line(px + dx * g, py, px + dx * (g + L), py, o);
-      pen.line(px, py + dy * g, px, py + dy * (g + L), o);
-    });
-  });
-  if (sheet.ticks) {
-    const [x, y, w, h] = sheet.ticks, t = 3.5;
-    [[x, y, 1, 1], [x + w, y, -1, 1], [x, y + h, 1, -1], [x + w, y + h, -1, -1]].forEach(([px, py, dx, dy]) => {
-      pen.line(px, py, px + dx * t, py, o);
-      pen.line(px, py, px, py + dy * t, o);
-    });
-  }
-  const fd = { w: 0.1, color: '#000', dash: [1.2, 1.2] };
-  if (sheet.foldX != null) pen.line(sheet.foldX, 0, sheet.foldX, sheetH, fd);
-  if (sheet.foldY != null) pen.line(0, sheet.foldY, sheetW, sheet.foldY, fd);
+// opções de desenho de uma página do slot, iguais no PDF, na prévia e na impressão
+function slotDrawOpts(plan, total) {
+  return plan.paper ? { screen: false, bleed: plan.bleed, total }
+    : { screen: false, print: true, bleed: plan.mode === 'fit' ? plan.bleed : 0, total };
 }
 
+// capa e miolo em arquivos separados (gráficas imprimem a capa em outro papel)
+function exportSelection() {
+  const s = state.settings, all = expand().map((pd, idx) => ({ pd, idx }));
+  if (s.exportPart === 'cover') return all.filter(x => x.pd.type === 'cover');
+  if (s.exportPart === 'body') return all.filter(x => x.pd.type !== 'cover');
+  return all;
+}
 async function exportPDF() {
+  const sel = exportSelection();
+  if (!sel.length) { toast(state.settings.exportPart === 'cover' ? 'O documento não tem capa.' : 'Adicione ao menos uma seção.'); return; }
   const pages = expand();
-  if (!pages.length) { toast('Adicione ao menos uma seção.'); return; }
   if (typeof resetPdfImages === 'function') resetPdfImages();
   const s = state.settings, [W, H] = paperWH();
-  const plan = impositionPlan(pages.length);
+  const plan = impositionPlan(sel.length);
+  const cmyk = s.pdfColor === 'cmyk';
   busy('Gerando PDF — ' + plan.sheets.length + ' folha(s)…');
   await new Promise(r => setTimeout(r, 20));
   try {
-    const f = v => (+v).toFixed(3);
     const bgHex = plan.paper ? s.paperBg : '#ffffff';
     const paintMioloBg = !plan.paper && s.paperBg && s.paperBg.toLowerCase() !== '#ffffff';
+    const dopt = slotDrawOpts(plan, pages.length);
     const out = [];
     for (let si = 0; si < plan.sheets.length; si++) {
       const sheet = plan.sheets[si];
-      const bg = PdfPen(plan.sheetW, plan.sheetH, 0, 0);
-      bg.rect(0, 0, plan.sheetW, plan.sheetH, { fill: bgHex });
-      let content = bg.stream();
-      for (const slot of sheet.slots) {
-        const sp = PdfPen(W, H, 0, 0);
-        if (paintMioloBg) sp.rect(0, 0, W, H, { fill: s.paperBg });
-        drawPageInto(sp, pages[slot.src], slot.src,
-          plan.paper ? { screen: false, bleed: plan.bleed, total: pages.length }
-                     : { screen: false, print: true, total: pages.length });
-        const tx = slot.ox * PT, ty = (plan.sheetH - slot.oy - H * slot.sc) * PT;
-        content += '\nq ' + f(slot.sc) + ' 0 0 ' + f(slot.sc) + ' ' + f(tx) + ' ' + f(ty) + ' cm\n' + sp.stream() + '\nQ';
-      }
-      const deco = PdfPen(plan.sheetW, plan.sheetH, 0, 0);
-      drawSheetMarks(deco, sheet, plan.sheetW, plan.sheetH);
-      content += '\n' + deco.stream();
-      out.push({ stream: content, wPt: plan.sheetW * PT, hPt: plan.sheetH * PT });
+      out.push(composeSheetPdf({ sheet, sheetW: plan.sheetW, sheetH: plan.sheetH, W, H, bg: bgHex,
+        draw: (sp, slot) => {
+          if (paintMioloBg) { const b = dopt.bleed || 0; sp.rect(-b, -b, W + 2 * b, H + 2 * b, { fill: s.paperBg }); }
+          drawPageInto(sp, sel[slot.src].pd, sel[slot.src].idx, dopt);
+        } }));
       if (si % 20 === 0) { busy('Folha ' + (si + 1) + ' / ' + plan.sheets.length + '…'); await new Promise(r => setTimeout(r, 0)); }
     }
-    busy('Montando o arquivo…'); await new Promise(r => setTimeout(r, 0));
-    const bytes = await buildPDF(out);
-    downloadBlob(new Blob([bytes], { type: 'application/pdf' }), (docName() || 'planner') + sheetFileTag(s) + '.pdf');
-    toast('PDF: ' + plan.sheets.length + ' folha(s) · ' + pages.length + ' pág. · ' +
+    busy(cmyk ? 'Convertendo para CMYK (FOGRA39) e incorporando fontes…' : 'Incorporando fontes e montando o arquivo…');
+    await new Promise(r => setTimeout(r, 0));
+    const bytes = await buildPDF(out, { color: s.pdfColor, inkSave: (s.inkSave || 0) / 100, title: docName() || 'Planner', creator: 'Planner Studio — Esmeralda Paper' });
+    downloadBlob(new Blob([bytes], { type: 'application/pdf' }), (docName() || 'planner') + ({ cover: '-capa', body: '-miolo' }[s.exportPart] || '') + sheetFileTag(s) + '.pdf');
+    toast('PDF' + (cmyk ? ' para gráfica (CMYK · PDF/X-4)' : '') + ': ' + plan.sheets.length + ' folha(s) · ' + sel.length + ' pág. · ' +
       (bytes.length / 1024).toFixed(0) + ' KB · ' + modeLabel(s));
   } catch (e) { console.error(e); toast('Erro ao gerar o PDF.'); }
   unbusy();
@@ -188,7 +233,7 @@ async function exportPNG() {
     const dpi = s_dpi();
     try { await document.fonts.ready; } catch (e) {}
     let svg = buildSVG(i, pages[i]);
-    if (typeof embeddedFontStyle === 'function') svg = svg.replace(/(<svg[^>]*>)/, '$1' + embeddedFontStyle());
+    { const fcss = await embeddedFontStyle(svg); svg = svg.replace(/(<svg[^>]*>)/, m => m + fcss); }
     const url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
     const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
     const cv = document.createElement('canvas');
@@ -208,25 +253,6 @@ function s_dpi() { return clamp(Math.round(num(state.settings.exportDPI, 300)), 
    (tamanho real / 1 por folha / 2 por folha / livreto). Nada de imprimir a
    prancheta da tela — que só renderiza uma janela de páginas. */
 function n2(v) { return (Math.round(v * 100) / 100); }
-function planMarksSVG(sw, sh, sheet) {
-  const L = 5, g = 2.2, w = 0.15;
-  const seg = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#000" stroke-width="${w}"/>`;
-  let p = '';
-  (sheet.trims || []).forEach(([x, y, ww, hh]) => {
-    [[x, y, -1, -1], [x + ww, y, 1, -1], [x, y + hh, -1, 1], [x + ww, y + hh, 1, 1]].forEach(([px, py, dx, dy]) => {
-      p += seg(px + dx * g, py, px + dx * (g + L), py) + seg(px, py + dy * g, px, py + dy * (g + L));
-    });
-  });
-  if (sheet.ticks) {
-    const [x, y, ww, hh] = sheet.ticks, t = 3.5;
-    [[x, y, 1, 1], [x + ww, y, -1, 1], [x, y + hh, 1, -1], [x + ww, y + hh, -1, -1]].forEach(([px, py, dx, dy]) => {
-      p += seg(px, py, px + dx * t, py) + seg(px, py, px, py + dy * t);
-    });
-  }
-  if (sheet.foldX != null) p += `<line x1="${sheet.foldX}" y1="0" x2="${sheet.foldX}" y2="${n2(sh)}" stroke="#000" stroke-width="0.1" stroke-dasharray="1.2 1.2"/>`;
-  if (sheet.foldY != null) p += `<line x1="0" y1="${sheet.foldY}" x2="${n2(sw)}" y2="${sheet.foldY}" stroke="#000" stroke-width="0.1" stroke-dasharray="1.2 1.2"/>`;
-  return p ? `<svg class="pmarks" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${n2(sw)} ${n2(sh)}">${p}</svg>` : '';
-}
 
 /* injeta regras de impressão sem <style> inline (a CSP proíbe): usa
    constructable stylesheet, ou, na falta dele, a CSSOM da própria print.css.
@@ -310,22 +336,15 @@ async function printDoc() {
       const sheet = plan.sheets[si];
       const psheet = document.createElement('div');
       psheet.className = 'psheet';
-      for (const slot of sheet.slots) {
+      const dopt = slotDrawOpts(plan, pages.length);
+      const slots = sheet.slots.map(slot => {
         const pen = SvgPen(W, H, { bg: s.paperBg });
-        drawPageInto(pen, pages[slot.src], slot.src,
-          plan.paper ? { screen: false, bleed: plan.bleed, total: pages.length }
-                     : { screen: false, print: true, total: pages.length });
-        const sl = document.createElement('div');
-        sl.className = 'pslot';
-        sl.style.left = n2(slot.ox) + 'mm';
-        sl.style.top = n2(slot.oy) + 'mm';
-        sl.style.width = n2(W * slot.sc) + 'mm';
-        sl.style.height = n2(H * slot.sc) + 'mm';
-        sl.innerHTML = pen.svg();
-        psheet.appendChild(sl);
-      }
-      const ms = planMarksSVG(plan.sheetW, plan.sheetH, sheet);
-      if (ms) psheet.insertAdjacentHTML('beforeend', ms);
+        drawPageInto(pen, pages[slot.src], slot.src, dopt);
+        return { x: slot.ox, y: slot.oy, w: W * slot.sc, h: H * slot.sc, rot: slot.rot, clip: slot.clip, svg: pen.svg() };
+      });
+      // folha inteira como um SVG — mesma geometria do PDF (marcas, giro, recorte)
+      psheet.innerHTML = EPShell.sheetSVG({ w: plan.sheetW, h: plan.sheetH, slots, marks: sheet.marks, foldX: sheet.foldX, foldY: sheet.foldY, print: true })
+        .replace('class="ep-sheet__svg"', 'class="pmarks"');
       root.appendChild(psheet);
       if (si % 40 === 0) { busy('Renderizando ' + (si + 1) + ' / ' + plan.sheets.length + '…'); await new Promise(r => setTimeout(r, 0)); }
     }
@@ -349,7 +368,7 @@ async function printDoc() {
     window.__printCleanup = cleanup;
     const fallback = setTimeout(cleanup, 120000);
     window.addEventListener('afterprint', onAfter);
-    const extra = plan.mode === 'booklet' ? ' · frente e verso, virar pela borda curta, depois dobrar'
+    const extra = plan.mode === 'booklet' ? ` · frente e verso, virar pela borda ${s.duplexFlip === 'long' ? 'longa' : 'curta'}, depois dobrar`
       : plan.mode === '2up' ? ' · imprima e corte na linha do meio'
       : ' · deixe escala 100% e margens Nenhuma';
     const landscapeHint = plan.sheetW > plan.sheetH ? ' · se o diálogo não marcar Paisagem sozinho, escolha Paisagem' : '';
@@ -365,6 +384,7 @@ function docName() {
 }
 
 /* ---------- projeto .json ---------- */
+const PRESET_DROP = ['events', 'footerText', 'labels'];
 function exportProject() {
   try {
     const data = JSON.stringify({ app: 'planner-studio', v: 1, state }, null, 0);
@@ -377,6 +397,10 @@ async function importProject(file) {
   busy('Abrindo projeto…');
   try {
     const d = JSON.parse(await file.text());
+    if (d && d.preset === true && d.settings && typeof d.settings === 'object') {
+      pushHistory('preset'); state.settings = { ...state.settings, ...d.settings }; state = migrate(state);
+      svgCache.clear(); syncDocControls(); render(); save(); fit(); toast('Predefinição aplicada.'); unbusy(); return;
+    }
     const st = d && d.state ? d.state : d;
     if (!st || typeof st !== 'object') throw new Error('estrutura');
     state = migrate(st);

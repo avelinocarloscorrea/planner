@@ -34,7 +34,12 @@ function syncDocControls() {
   rng('#d_pnumSkip', s.pageNumberSkip, String(s.pageNumberSkip));
   rng('#d_bleed', s.bleedMm, s.bleedMm + ' mm');
   chk('#d_crop', s.cropMarks);
-  $('#d_cropRow').hidden = s.bleedMm <= 0;
+  chk('#d_reg', s.registration);
+  chk('#d_tabs', s.monthTabs); set('#d_exportPart', s.exportPart);
+  chk('#d_creep', s.bookletCreep);
+  rng('#d_safe', s.safeMm, s.safeMm + ' mm');
+  rng('#d_inkSave', s.inkSave, s.inkSave ? s.inkSave + '%' : 'desligada');
+  set('#d_twoUpFit', s.twoUpFit); set('#d_duplexFlip', s.duplexFlip); set('#d_pdfColor', s.pdfColor);
   chk('#d_pnumTotal', s.pageNumberTotal);
   set('#d_pnumPrefix', s.pageNumberPrefix);
   set('#d_footer', s.footerText);
@@ -64,20 +69,20 @@ function syncDocControls() {
     const size = `${W.toFixed(0)}×${H.toFixed(0)} mm`;
     const sheetLabel = ({ a4: 'A4', letter: 'Carta', a3: 'A3' })[eff.sheet] || 'A4';
     const twoUpHint = s.twoUpOrder === 'seq'
-      ? `Duas páginas lado a lado por folha, em sequência (1-2, 3-4…). Imprima só a <b>frente</b>. Imprima em <b>100%</b>, sem margens.`
+      ? `Duas páginas lado a lado por folha, em sequência (1-2, 3-4…). Imprima só a <b>frente</b>. Imprima em <b>100%</b>${s.twoUpFit === 'shrink' ? '' : ', sem margens'}.`
       : s.twoUpOrder === 'duplex'
-      ? `Miolo dividido em 2 metades. Imprima <b>frente e verso</b> virando pela borda curta e corte ao meio: cada metade já sai pronta, na ordem certa — sem reempilhar nada. Imprima em <b>100%</b>, sem margens.`
-      : `Duas páginas lado a lado por folha. Imprima só a <b>frente</b>, corte ao meio e ponha a metade da direita sob a da esquerda — mantém a ordem. Imprima em <b>100%</b>, sem margens.`;
+      ? `Miolo dividido em 2 metades. Imprima <b>frente e verso</b> virando pela borda ${s.duplexFlip === 'long' ? 'longa' : 'curta'} e corte ao meio: cada metade já sai pronta, na ordem certa — sem reempilhar nada. Imprima em <b>100%</b>${s.twoUpFit === 'shrink' ? '' : ', sem margens'}.`
+      : `Duas páginas lado a lado por folha. Imprima só a <b>frente</b>, corte ao meio e ponha a metade da direita sob a da esquerda — mantém a ordem. Imprima em <b>100%</b>${s.twoUpFit === 'shrink' ? '' : ', sem margens'}.`;
     const HINTS = {
       auto: eff.mode === '2up'
         ? `Decide sozinho: como duas páginas do miolo (${size} cada) cabem lado a lado numa folha ${sheetLabel}, aproveita a folha inteira. ${twoUpHint}`
         : eff.mode === 'fit'
-        ? `Decide sozinho: como o miolo (${size}) não fecha uma folha ${sheetLabel}, sai centralizado com <b>marcas de corte</b>. Imprima em <b>100%</b>, sem margens.`
-        : `Decide sozinho: como o miolo (${size}) já fecha (ou passa de) uma folha ${sheetLabel}, sai no <b>tamanho exato</b>, sem marca de corte. Imprima em <b>100%</b>, sem margens.`,
-      real: `Página no tamanho exato do miolo (${size}), sem marca de corte — pronta para a gráfica. Imprima em <b>100%</b>, sem margens.`,
+        ? `Decide sozinho: como o miolo (${size}) não fecha uma folha ${sheetLabel}, sai centralizado com <b>marcas de corte</b>. Imprima em <b>100%</b>${s.twoUpFit === 'shrink' ? '' : ', sem margens'}.`
+        : `Decide sozinho: como o miolo (${size}) já fecha (ou passa de) uma folha ${sheetLabel}, sai no <b>tamanho exato</b>. Imprima em <b>100%</b>.`,
+      real: `Página no tamanho exato do miolo (${size})${s.bleedMm > 0 ? `, com ${s.bleedMm} mm de sangria` : ''}${s.cropMarks ? ' e marcas de corte fora da sangria' : ''}${s.pdfColor === 'cmyk' ? ' — PDF/X-4 em CMYK, pronto para a gráfica' : ''}. Imprima em <b>100%</b>.`,
       fit: `Miolo centralizado numa folha ${sheetLabel} com <b>marcas de corte</b>. Imprima em <b>100%</b>, sem margens, e corte na marca.`,
       '2up': twoUpHint,
-      booklet: `Páginas reordenadas para virar livreto: imprima <b>frente e verso</b> virando pela borda curta, empilhe e <b>dobre ao meio</b>. Imprima em <b>100%</b>, sem margens.`,
+      booklet: `Páginas reordenadas para virar livreto: imprima <b>frente e verso</b> virando pela borda ${s.duplexFlip === 'long' ? 'longa' : 'curta'}, empilhe e <b>dobre ao meio</b>. Imprima em <b>100%</b>${s.twoUpFit === 'shrink' ? '' : ', sem margens'}.`,
     };
     eh.innerHTML = HINTS[s.exportMode] || '';
   } }
@@ -94,6 +99,16 @@ function bindDoc() {
   const psel = $('#d_paper');
   Object.entries(P).forEach(([k, v]) => psel.add(new Option(v.label, k)));
   Object.entries(BINDINGS).forEach(([k, v]) => $('#d_binding').add(new Option(v.label, k)));
+  // famílias de título: todas as fontes do núcleo (mesma fonte na tela e incorporada no PDF)
+  if (typeof EPFontMetrics !== 'undefined' && $('#d_headingFont')) {
+    const sel = $('#d_headingFont'); sel.innerHTML = '';
+    const KIND = { texto: 'Texto', titulo: 'Títulos', manuscrita: 'Manuscritas e decorativas' };
+    Object.entries(KIND).forEach(([kind, lbl]) => {
+      const g = document.createElement('optgroup'); g.label = lbl;
+      Object.entries(EPFontMetrics.families).filter(([, f]) => f.kind === kind).forEach(([k, f]) => g.appendChild(new Option(f.label, k)));
+      sel.appendChild(g);
+    });
+  }
 
   const commit = (key, val, opts = {}) => {
     pushHistory('doc-' + key);
@@ -130,6 +145,20 @@ function bindDoc() {
   bindRange('#d_bleed', 'bleedMm', ' mm');
   $('#d_bleed').addEventListener('change', () => commit('bleedMm', state.settings.bleedMm));
   $('#d_crop').onchange = e => commit('cropMarks', e.target.checked);
+  $('#d_reg').onchange = e => commit('registration', e.target.checked);
+  $('#d_tabs').onchange = e => commit('monthTabs', e.target.checked);
+  $('#d_exportPart').onchange = e => { state.settings.exportPart = e.target.value; state.settings = migrate(state).settings; save(); };
+  $('#b_calib').onclick = async () => {
+    busy('Gerando folha de calibração…');
+    try { const bytes = await EPPen.calibrationPdf({ color: state.settings.pdfColor }); downloadBlob(new Blob([bytes], { type: 'application/pdf' }), 'folha-de-calibracao.pdf'); }
+    catch (e) { console.error(e); toast('Erro ao gerar a folha de calibração.'); }
+    unbusy();
+  };
+  $('#d_creep').onchange = e => commit('bookletCreep', e.target.checked);
+  bindRange('#d_safe', 'safeMm', ' mm');
+  $('#d_safe').addEventListener('change', () => commit('safeMm', state.settings.safeMm));
+  bindRange('#d_inkSave', 'inkSave', '%');
+  $('#d_inkSave').addEventListener('change', () => commit('inkSave', state.settings.inkSave));
   $('#d_year').onchange = e => commit('year', parseInt(e.target.value, 10));
   if ($('#d_startDate')) $('#d_startDate').onchange = e => commit('startDate', e.target.value.trim());
   $('#d_week').onchange = e => commit('weekStart', e.target.value);
@@ -793,6 +822,10 @@ function bindBar() {
   $('#m_history').onclick = () => { mclose(); openHistoryPop($('#b_more')); };
   $('#m_new').onclick = () => { mclose(); if (!state.sections.length || confirm('Começar um novo documento? O atual será descartado.')) { newDoc(TEMPLATES.find(t => t.id === 'branco')); toast('Novo documento.'); } };
   $('#m_save').onclick = () => { mclose(); exportProject(); };
+  // predefinição: só os ajustes (papel, margens, cores, saída…), sem páginas nem fotos.
+  // Abrir o arquivo em "Abrir projeto…" aplica os ajustes ao documento atual.
+  $('#m_preset').onclick = () => { mclose(); const keep = PRESET_DROP.reduce((o, k) => (delete o[k], o), JSON.parse(JSON.stringify(state.settings)));
+    downloadBlob(new Blob([JSON.stringify({ preset: true, app: 'plannerstudio', settings: keep })], { type: 'application/json' }), 'predefinicao-planner.json'); toast('Predefinição salva.'); };
   $('#m_open').onclick = () => { mclose(); $('#file_open').click(); };
   $('#m_help').onclick = () => { mclose(); $('#help').showModal(); };
   $('#m_privacy').onclick = () => { mclose(); $('#privacy').showModal(); };

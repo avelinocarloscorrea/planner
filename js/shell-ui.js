@@ -185,7 +185,7 @@ $('#ob_open').onclick = e => { e.preventDefault(); $('#file_open').click(); };
 
 /* ================= Imprimir e baixar ================= */
 let xpIdx = 0;                  // índice (par) da 1ª folha mostrada na prévia
-let xpCards = null, xpSheetSeg = null, xpOrderSeg = null;
+let xpCards = null, xpSheetSeg = null, xpOrderSeg = null, xpFitSeg = null, xpFlipSeg = null, xpColorSeg = null;
 
 function xpSetup() {
   if (xpCards) return;
@@ -201,11 +201,17 @@ function xpSetup() {
   ]);
   xpSheetSeg = EPShell.segmented($('#xp_sheet'), $('#d_sheet'));
   xpOrderSeg = EPShell.segmented($('#xp_order'), $('#d_twoUpOrder'));
+  xpFitSeg = EPShell.segmented($('#xp_fit'), $('#d_twoUpFit'));
+  xpFlipSeg = EPShell.segmented($('#xp_flip'), $('#d_duplexFlip'));
+  xpColorSeg = EPShell.segmented($('#xp_color'), $('#d_pdfColor'));
   // sem aviso a cada troca (o próprio diálogo já mostra o resultado)
   const commitExp = (k, v) => { state.settings[k] = v; state.settings = migrate(state).settings; syncDocControls(); save(); };
   $('#d_exportMode').onchange = e => commitExp('exportMode', e.target.value);
   $('#d_sheet').onchange = e => commitExp('sheet', e.target.value);
   $('#d_twoUpOrder').onchange = e => commitExp('twoUpOrder', e.target.value);
+  $('#d_twoUpFit').onchange = e => commitExp('twoUpFit', e.target.value);
+  $('#d_duplexFlip').onchange = e => commitExp('duplexFlip', e.target.value);
+  $('#d_pdfColor').onchange = e => commitExp('pdfColor', e.target.value);
   let t;
   $('#xp_body').addEventListener('input', () => { clearTimeout(t); t = setTimeout(xpRefresh, 120); });
   $('#xp_body').addEventListener('change', () => { clearTimeout(t); t = setTimeout(xpRefresh, 30); });
@@ -232,22 +238,28 @@ function xpRefresh() {
   if (xpCards) xpCards.build();
   if (xpSheetSeg) xpSheetSeg.sync();
   if (xpOrderSeg) xpOrderSeg.sync();
+  [xpFitSeg, xpFlipSeg, xpColorSeg].forEach(g => g && g.sync());
   $('#d_sheetRow').hidden = eff.mode === 'real' || s.exportMode === 'auto';
   $('#d_twoUpRow').hidden = eff.mode !== '2up';
-  $('#d_cropRow').hidden = s.bleedMm <= 0;
+  $('#d_fitRow').hidden = !(eff.mode === '2up' || eff.mode === 'booklet');
+  $('#d_flipRow').hidden = !duplex;
+  $('#d_regRow').hidden = !(s.cropMarks && eff.mode === 'real');
+  $('#d_creepRow').hidden = eff.mode !== 'booklet';
   xpIdx = clamp(xpIdx - (xpIdx % 2), 0, Math.max(0, total - 1 - ((total - 1) % 2)));
 
   // ---- prévia: 2 lados (frente/verso) ou 2 folhas seguidas ----
   const sheetView = k => {
     const sh = plan.sheets[k]; if (!sh) return null;
+    const dopt = slotDrawOpts(plan, n);
     const slots = sh.slots.map(sl => ({
-      x: sl.ox, y: sl.oy, w: W * sl.sc, h: H * sl.sc, num: sl.src + 1,
+      x: sl.ox, y: sl.oy, w: W * sl.sc, h: H * sl.sc, num: sl.src + 1, rot: sl.rot, clip: sl.clip,
       svg: (() => { const pen = SvgPen(W, H, { bg: s.paperBg });
-        drawPageInto(pen, pages[sl.src], sl.src, plan.paper ? { screen: false, bleed: plan.bleed, total: n } : { screen: false, print: true, total: n });
+        drawPageInto(pen, pages[sl.src], sl.src, dopt);
         return pen.svg(); })(),
     }));
-    if (plan.paper && plan.bleed > 0) slots.forEach(sl => { sl.x = plan.bleed; sl.y = plan.bleed; });
-    return EPShell.sheetSVG({ w: plan.sheetW, h: plan.sheetH, slots, trims: sh.trims, ticks: sh.ticks, foldX: sh.foldX, foldY: sh.foldY });
+    // prévia com as caixas de corte (azul) e sangria (vermelho) — o que a gráfica vai refilar
+    return EPShell.sheetSVG({ w: plan.sheetW, h: plan.sheetH, slots, marks: sh.marks, foldX: sh.foldX, foldY: sh.foldY,
+      trimBox: sh.trimBox, bleedBox: sh.bleedBox, trimBoxes: sh.trimBoxes, guides: plan.paper || plan.mode === 'fit' });
   };
   const a = sheetView(xpIdx), b = sheetView(xpIdx + 1);
   const physical = duplex ? Math.ceil(total / 2) : total;
@@ -268,14 +280,27 @@ function xpRefresh() {
 
   // ---- resumo ----
   const sheetName = plan.paper ? `${W.toFixed(0)}×${H.toFixed(0)} mm` : (SHEET_NAME[eff.sheet] || 'A4');
-  const sides = duplex ? 'imprimir <b>frente e verso</b>' : (eff.mode === '2up' || !s.mirrorMargins) ? 'imprimir só a <b>frente</b>' : `frente e verso: <b>${Math.ceil(total / 2)} folhas</b>`;
+  const sides = duplex ? `imprimir <b>frente e verso</b>, virando pela borda ${s.duplexFlip === 'long' ? 'longa' : 'curta'}` : (eff.mode === '2up' || !s.mirrorMargins) ? 'imprimir só a <b>frente</b>' : `frente e verso: <b>${Math.ceil(total / 2)} folhas</b>`;
   $('#xp_summary').innerHTML = `<span class="big">${physical}</span><span class="txt"><b>${physical === 1 ? 'folha' : 'folhas'} ${esc(sheetName)}</b> para ${n} páginas · ${sides}</span>`;
   $('#xp_sub').textContent = `${paperShort(s)} · ${n} páginas · ${modeName(eff)}`;
 
   // ---- verificação ----
   const chk = [];
   const sc = plan.sheets[0] && plan.sheets[0].slots[0] ? plan.sheets[0].slots[0].sc : 1;
-  chk.push({ level: 'ok', text: `Páginas de <b>${W.toFixed(0)}×${H.toFixed(0)} mm</b>, em PDF vetorial (linhas nítidas em qualquer impressora).` });
+  chk.push({ level: 'ok', text: `Páginas de <b>${W.toFixed(1).replace('.0', '')}×${H.toFixed(1).replace('.0', '')} mm</b>, PDF vetorial com <b>fontes incorporadas</b>.` });
+  if (s.pdfColor === 'cmyk') {
+    chk.push({ level: 'ok', text: 'Cores em <b>CMYK (FOGRA39)</b>, textos e linhas cinza só no preto (K), caixas de corte e sangria: <b>PDF/X-4</b>.' });
+    if (eff.mode === 'real' && !(s.bleedMm >= 3) && state.sections.some(x => x.type === 'cover'))
+      chk.push({ level: 'warn', text: 'Para gráfica, use <b>3 mm de sangria</b> — sem ela, a capa pode ficar com filete branco no refile.',
+        action: { label: 'Usar 3 mm', fn: () => { state.settings.bleedMm = 3; state.settings = migrate(state).settings; syncDocControls(); save(); xpRefresh(); } } });
+  }
+  if (eff.mode === '2up' && sc >= 0.999 && plan.overflow === false && Math.min(plan.sheets[0] ? plan.sheets[0].trimBox.x : 9, plan.sheets[0] ? plan.sheets[0].trimBox.y : 9) < 3) {
+    chk.push({ level: 'info', text: 'Tamanho exato: as páginas encostam na borda da folha. Se a sua impressora não imprime sem margem, a borda externa pode sair cortada.',
+      action: { label: 'Reduzir para caber', fn: () => { $('#d_twoUpFit').value = 'shrink'; $('#d_twoUpFit').dispatchEvent(new Event('change', { bubbles: true })); } } });
+  }
+  if (plan.overflow) chk.push({ level: 'warn', text: `Duas páginas de ${W.toFixed(0)}×${H.toFixed(0)} mm <b>não cabem</b> na folha ${SHEET_NAME[eff.sheet] || ''} em tamanho exato.`,
+    action: { label: 'Reduzir para caber', fn: () => { $('#d_twoUpFit').value = 'shrink'; $('#d_twoUpFit').dispatchEvent(new Event('change', { bubbles: true })); } } });
+  if (duplex && total % 2) chk.push({ level: 'info', text: 'Frente e verso com número ímpar de lados: o último verso fica em branco.' });
   if (sc < 0.985) {
     chk.push({ level: 'warn', text: `As páginas vão sair <b>reduzidas a ${Math.round(sc * 100)}%</b> para caber na folha ${SHEET_NAME[eff.sheet] || ''}.`,
       action: eff.sheet !== 'a3' && s.exportMode !== 'auto' ? { label: 'Usar A3', fn: () => { $('#d_sheet').value = 'a3'; $('#d_sheet').dispatchEvent(new Event('change', { bubbles: true })); } }
@@ -289,7 +314,7 @@ function xpRefresh() {
   }
   const bind = BINDINGS[s.binding];
   if (bind && bind.punch) {
-    chk.push({ level: 'info', text: `Margem de <b>${(s.marginInner + bind.innerAdd).toFixed(0)} mm</b> reservada para ${esc(bind.label.toLowerCase())}${s.printPunch ? ', com guia de furos impressa' : ''}.` });
+    chk.push({ level: 'info', text: `Margem de <b>${bindingInner().toFixed(0)} mm</b> reservada para ${esc(bind.label.toLowerCase())}${outputDuplex() ? ' — no verso ela passa para a direita' : ''}${s.printPunch ? ', com guia de furos na medida da máquina' : ''}.` });
   } else if (s.binding === 'none' && n > 40) {
     chk.push({ level: 'info', text: `Sem encadernação definida. Vai usar espiral ou wire-o? Reserve a margem certa.`,
       action: { label: 'Definir', fn: () => { $('#exportDlg').close(); showPane('papel'); } } });

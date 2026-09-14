@@ -85,6 +85,8 @@
       </figure>
     </section>
 
+    <p>Tipos que se montam sozinhos: <b>Sumário automático</b> (lista cada seção com o número da página em que ela começa), <b>Dados pessoais</b> (folha de rosto com campos editáveis), <b>Semana · duas páginas</b> (segunda a quarta na página da esquerda; quinta a domingo e notas na da direita, sempre abertas lado a lado) e <b>Folha de calibração</b>. Em <b>Papel</b>, <b>Abas de mês na borda externa</b> imprime abas laterais nas páginas com data, que sangram até o corte.</p>
+    <p>Formatos brasileiros: <b>Universitário 200 × 275 mm</b>, <b>Brochura 140 × 200 mm</b> e <b>Desenho 275 × 200 mm</b>, com modelos prontos. Com <b>data inicial</b> em agosto, a visão anual, as metas e os meses seguem o ano letivo (ago–jul).</p>
     <section id="blocos"><h2>5. Página personalizada (blocos)</h2>
       <p>Quando nenhum tipo pronto serve, use <b>Adicionar seção → Meus blocos → Página personalizada</b> e monte o layout do zero. No painel da seção, clique em <b>Montar o layout</b> para abrir o editor de tela cheia.</p>
       <ul>
@@ -166,12 +168,24 @@
       <ul>
         <li><b>Imprimir</b> (ou Ctrl/Cmd+P): monta um documento pronto e manda para a impressora usando <b>a mesma montagem</b> escolhida acima (tamanho real, 1 por folha, 2 por folha ou livreto), no tamanho físico exato e respeitando a <b>margem de lombada</b> e a <b>alternância frente/verso</b>. No diálogo do navegador, deixe <b>Margens: Nenhuma</b> e <b>Escala: 100%</b>. Para livreto e para "2 por folha — frente e verso", escolha <b>frente e verso pela borda curta</b>; para os demais modos com frente e verso, pela borda longa.</li>
         <li><b>PNG</b>: imagem da página atual, na resolução escolhida (200–600 dpi).</li>
-        <li><b>Sangria + marcas de corte</b>: no modo tamanho real, aumente a sangria (3–5 mm) e ligue as marcas de corte para a gráfica.</li>
+        <li><b>Sangria + marcas de corte</b>: no modo tamanho real, aumente a sangria (3–5 mm) e ligue as marcas de corte para a gráfica. As marcas ficam <b>fora da sangria</b>, numa faixa extra da folha, apontando exatamente para a linha de corte.</li>
+      </ul>
+      <h3>Arquivo para a gráfica (CMYK · PDF/X-4)</h3>
+      <p>Em <b>Arquivo para</b>, escolha <b>Gráfica (CMYK)</b>. O PDF sai no padrão que as gráficas pedem: cores e imagens convertidas para <b>CMYK pelo perfil FOGRA39</b> (couché), textos e linhas cinza <b>só no preto (K)</b>, <b>fontes incorporadas</b>, caixas de <b>corte (TrimBox) e sangria (BleedBox)</b> e o perfil de saída embutido (<b>PDF/X-4</b>). O PDF <b>Casa (RGB)</b> continua sendo o melhor para impressora doméstica. Os dois usam as mesmas fontes da tela: o que você vê na prévia é o que sai no papel.</p>
+      <ul>
+        <li><b>Escala das páginas</b> (2 por folha e livreto): <b>Tamanho exato</b> mantém 100 % — um A5 sai 148 × 210 mm. <b>Reduzir para caber</b> encolhe só o necessário para a margem que a impressora não imprime.</li>
+        <li><b>Frente e verso: virar pela borda curta ou longa</b> — escolha o mesmo que vai marcar na impressora; o verso é montado para essa virada.</li>
+        <li><b>Encadernação com furo</b>: a margem da lombada e a guia de furos <b>trocam de lado no verso</b> (é a mesma borda vista do outro lado). Os furos seguem a medida da máquina: wire-o 3:1 (passo de 8,47 mm), espiral 4:1 (6,35 mm), fichário ISO 838 (80 mm), centralizados na altura.</li>
+        <li><b>Compensar creep no livreto</b>: as folhas de dentro avançam ao dobrar; a arte delas se desloca para a dobra pela espessura do papel.</li>
+        <li><b>Economia de tinta</b>: clareia cores e fundos no PDF (não mexe no projeto).</li>
+        <li><b>Exportar só a capa ou só o miolo</b>: gráficas imprimem a capa em outro papel.</li>
+        <li><b>Folha de calibração</b>: régua de 100 mm, quadrado de 50 mm, faixas para descobrir a margem mínima da impressora, fios, corpos de texto e escala de cinza. Imprima uma vez antes do trabalho.</li>
       </ul>
     </section>
 
     <section id="projeto"><h2>11. Salvar o projeto</h2>
       <p>O documento fica guardado neste navegador automaticamente. Para backup ou para abrir em outro computador, use <b>Menu ⋯ → Salvar projeto (.json)</b> e depois <b>Abrir projeto…</b>.</p>
+      <p><b>Salvar predefinição (só ajustes)</b> guarda papel, margens, encadernação, cores e opções de saída, sem as páginas. Abra esse arquivo em <b>Abrir projeto…</b> para aplicar os ajustes em outro caderno.</p>
     </section>
 
     <section id="faq"><h2>12. Perguntas frequentes</h2>

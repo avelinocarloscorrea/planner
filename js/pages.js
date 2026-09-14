@@ -576,16 +576,16 @@ PAGE_DRAW.quote = (pen, box, o, ctx) => {
 };
 
 PAGE_DRAW.moodYear = (pen, box, o, ctx) => {
-  const year = ctx.S.year;
-  heading(pen, String(o.title || 'Meu ano em cores') + ' · ' + year, box.x, box.y, box.w, 15, 10, { color: ctx.ink });
+  const span = yearSpan(ctx);
+  heading(pen, String(o.title || 'Meu ano em cores') + ' · ' + span.label, box.x, box.y, box.w, 15, 10, { color: ctx.ink });
   const legend = String(o.legend || '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6);
   const top = box.y + 9, botPad = legend.length ? 12 : 2;
   const labelW = 10, gw = box.w - labelW, cw = gw / 31;
   const gh = box.y + box.h - top - botPad, rh = gh / 12;
   for (let d = 1; d <= 31; d++) if (d % 2 === 1) pen.text(String(d), box.x + labelW + (d - 0.5) * cw, top - 3.5, { size: 3.2, color: ctx.faint, align: 'c', baseline: 'top' });
   for (let m = 0; m < 12; m++) {
-    const y = top + m * rh, dim = new Date(year, m + 1, 0).getDate();
-    pen.text(MONTHS_PT[m].slice(0, 3), box.x, y + rh / 2, { size: 4.6, color: ctx.ink, baseline: 'middle' });
+    const fm = span.month(m), y = top + m * rh, dim = new Date(fm.getFullYear(), fm.getMonth() + 1, 0).getDate();
+    pen.text(MONTHS_PT[fm.getMonth()].slice(0, 3), box.x, y + rh / 2, { size: 4.6, color: ctx.ink, baseline: 'middle' });
     for (let d = 0; d < 31; d++) {
       if (d >= dim) continue;
       pen.rect(box.x + labelW + d * cw + 0.15, y + 0.15, cw - 0.3, rh - 0.3, { stroke: ctx.hair, w: 0.1 });
@@ -696,17 +696,27 @@ PAGE_DRAW.index = (pen, box, o, ctx) => {
   }
 };
 
+// período de 12 meses do documento: começa no mês da data inicial (ano letivo
+// ago–jul, fiscal etc.) ou em janeiro. Título "2027" ou "ago 2026 – jul 2027". (A6)
+function yearSpan(ctx) {
+  const st = ctx.yearStart || new Date(ctx.S.year, 0, 1);
+  const y0 = st.getFullYear(), m0 = st.getMonth();
+  const end = new Date(y0, m0 + 11, 1);
+  const label = m0 === 0 ? String(y0) : `${MONTHS_PT[m0].slice(0, 3).toLowerCase()} ${y0} – ${MONTHS_PT[end.getMonth()].slice(0, 3).toLowerCase()} ${end.getFullYear()}`;
+  return { y0, m0, label, month: k => new Date(y0, m0 + k, 1) };
+}
 PAGE_DRAW.yearOverview = (pen, box, o, ctx) => {
-  const year = ctx.S.year, ws = o.weekStart || ctx.weekStart, dow = orderedDOW(ws);
+  const span = yearSpan(ctx), ws = o.weekStart || ctx.weekStart, dow = orderedDOW(ws);
   let top = box.y;
-  if (o.title !== false) { heading(pen, String(year), box.x, box.y, box.w, 26, 14, { color: ctx.ink }); top = box.y + 12; }
+  if (o.title !== false) { heading(pen, span.label, box.x, box.y, box.w, 26, 14, { color: ctx.ink }); top = box.y + 12; }
   const gx = 4, gy = 5;
   const cw = (box.w - gx * 3) / 4, ch = (box.y + box.h - top - gy * 2) / 3;
   for (let m = 0; m < 12; m++) {
     const bx = box.x + (m % 4) * (cw + gx), by = top + Math.floor(m / 4) * (ch + gy);
-    pen.text(MONTHS_PT[m], bx, by, { size: 7, font: 'bold', color: ctx.ink, baseline: 'top' });
-    const first = new Date(year, m, 1), sc = dow.indexOf(first.getDay());
-    const dim = new Date(year, m + 1, 0).getDate();
+    const first = span.month(m), year = first.getFullYear(), mm = first.getMonth();
+    pen.text(MONTHS_PT[mm] + (span.m0 && mm === 0 ? ' ' + year : ''), bx, by, { size: 7, font: 'bold', color: ctx.ink, baseline: 'top' });
+    const sc = dow.indexOf(first.getDay());
+    const dim = new Date(year, mm + 1, 0).getDate();
     const cellW = cw / 7, cellH = (ch - 6) / 7;
     for (let d = 0; d < 7; d++) pen.text(DOW3_PT[dow[d]][0].toUpperCase(), bx + d * cellW + cellW / 2, by + 4.5, { size: 4.2, color: ctx.faint, align: 'c', baseline: 'top' });
     for (let day = 1; day <= dim; day++) {
@@ -717,7 +727,7 @@ PAGE_DRAW.yearOverview = (pen, box, o, ctx) => {
 };
 
 PAGE_DRAW.yearGoals = (pen, box, o, ctx) => {
-  heading(pen, 'Metas de ' + ctx.S.year, box.x, box.y, box.w, 16, 11, { color: ctx.ink });
+  heading(pen, 'Metas de ' + yearSpan(ctx).label, box.x, box.y, box.w, 16, 11, { color: ctx.ink });
   const custom = String(o.entries || '').split('\n').map(s => s.trim()).filter(Boolean);
   const areas = custom.length ? custom.slice(0, 12)
     : ['Saúde & bem-estar', 'Trabalho & finanças', 'Aprendizado', 'Relações', 'Casa & organização', 'Lazer & criatividade'];
@@ -730,13 +740,9 @@ PAGE_DRAW.yearGoals = (pen, box, o, ctx) => {
   });
 };
 
-function isoWeek(dt) {
-  const t = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
-  const day = t.getUTCDay() || 7;
-  t.setUTCDate(t.getUTCDate() + 4 - day);
-  const ys = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  return Math.ceil((((t - ys) / 86400000) + 1) / 7);
-}
+// semana ISO 8601 da linha: vem do núcleo (EPDates) e é medida na quinta-feira
+// da linha — com a semana começando no domingo, o 1º dia da linha é da semana ISO anterior.
+function isoWeek(rowStart) { const t = new Date(rowStart); t.setDate(t.getDate() + ((4 - t.getDay() + 7) % 7)); return EPDates.isoWeek(t); }
 function calGrid(pen, x, y, w, h, d, ws, ctx, opts = {}) {
   const year = d.getFullYear(), month = d.getMonth(), dow = orderedDOW(ws);
   const first = new Date(year, month, 1), sc = dow.indexOf(first.getDay());
@@ -1145,3 +1151,74 @@ function pageTypeHasDate(type) {
   return !!(PAGE_TYPES[type] && (PAGE_TYPES[type].dated ||
     (type === 'custom')));
 }
+
+/* ---------- semana em duas páginas ---------- */
+PAGE_DRAW.weekSpread = (pen, box, o, ctx) => {
+  const ws = o.weekStart || ctx.weekStart, days = weekDates(ctx.date || new Date(ctx.S.year, 0, 1), ws);
+  const left = ctx.half !== 'R';
+  const idxs = left ? [0, 1, 2] : [3, 4, 5, 6];
+  const label = left ? `${MONTHS_PT[days[0].getMonth()]} ${days[0].getFullYear()}` : `Semana ${isoWeek(days[0])} · ${fmtDMY(days[0])} – ${fmtDMY(days[6])}`;
+  heading(pen, label, box.x, box.y, box.w, 11, 8, { color: ctx.ink });
+  const top = box.y + 9;
+  const slots = left ? 3 : 4 + (o.notes !== false ? 0 : 0);
+  const rows = left ? 3 : (o.notes !== false ? 4 : 4);
+  const cols = !left && o.notes !== false ? 2 : 1;
+  const markFn = typeof ctx.markOn === 'function' ? ctx.markOn : null;
+  if (cols === 1) {
+    const h = (box.y + box.h - top) / rows;
+    idxs.forEach((di, i) => dayBlock(pen, { x: box.x, y: top + i * h, w: box.w, h: h - 2 }, days[di], o, ctx, markFn));
+  } else {
+    // direita: qui/sex/sáb/dom numa grade 2×2 + faixa de notas embaixo
+    const notesH = (box.y + box.h - top) * 0.22, gh = box.y + box.h - top - notesH - 3;
+    const cw = (box.w - 3) / 2, h = gh / 2;
+    idxs.forEach((di, i) => dayBlock(pen, { x: box.x + (i % 2) * (cw + 3), y: top + Math.floor(i / 2) * h, w: cw, h: h - 2 }, days[di], o, ctx, markFn));
+    const ny = top + gh + 3;
+    pen.text(ctx.L('notas'), box.x, ny, { size: 6, font: 'bold', color: ctx.faint, baseline: 'top', tracking: 0.4 });
+    fillLines(pen, { x: box.x, y: ny + 3, w: box.w, h: notesH - 3 }, 6, 0.14, ctx.hair);
+  }
+  void slots;
+};
+function dayBlock(pen, b, dt, o, ctx, markFn) {
+  const col = wkCol(ctx, dt.getDay());
+  pen.line(b.x, b.y + 6, b.x + b.w, b.y + 6, { w: 0.35, color: ctx.ink });
+  pen.text(DOW_PT[dt.getDay()].toUpperCase(), b.x, b.y + 3, { size: 6.5, font: 'bold', color: col, baseline: 'middle', tracking: 0.4 });
+  pen.text(String(dt.getDate()), b.x + b.w, b.y + 3, { size: 10, font: 'bold', color: ctx.faint, align: 'r', baseline: 'middle' });
+  const nm = markFn && markFn(dt);
+  if (nm) pen.text(clipLine(pen, nm, b.w * 0.6, 4.2), b.x + b.w - 8, b.y + 3, { size: 4.2, color: ctx.accent, align: 'r', baseline: 'middle' });
+  if (o.lines !== false) fillLines(pen, { x: b.x, y: b.y + 6, w: b.w, h: b.h - 6 }, 6, 0.14, ctx.hair);
+}
+
+/* ---------- dados pessoais ---------- */
+PAGE_DRAW.personal = (pen, box, o, ctx) => {
+  heading(pen, String(o.title || 'Este caderno pertence a'), box.x, box.y, box.w, 16, 10, { color: ctx.ink });
+  pen.line(box.x, box.y + 10, box.x + 24, box.y + 10, { w: 0.6, color: ctx.accent });
+  const fields = String(o.fields || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 16);
+  const top = box.y + 20, step = Math.min(16, (box.y + box.h - top) / Math.max(1, fields.length));
+  fields.forEach((f, i) => {
+    const y = top + i * step;
+    pen.text(f.toUpperCase(), box.x, y, { size: 6, font: 'bold', color: ctx.faint, baseline: 'top', tracking: 0.5 });
+    pen.line(box.x, y + step - 3, box.x + box.w, y + step - 3, { w: 0.25, color: ctx.hair });
+  });
+  if (ctx.varOwner && fields.length) pen.text(ctx.varOwner, box.x, top + step - 5, { size: 11, font: 'it', family: ctx.hfam, color: ctx.ink, baseline: 'bottom' });
+};
+
+/* ---------- sumário automático ---------- */
+PAGE_DRAW.toc = (pen, box, o, ctx) => {
+  heading(pen, String(o.title || 'Sumário'), box.x, box.y, box.w, 16, 10, { color: ctx.ink });
+  const list = typeof ctx.toc === 'function' ? ctx.toc() : [];
+  const top = box.y + 14, step = clamp((box.y + box.h - top) / Math.max(12, list.length), 5, 9);
+  const size = clamp(step * 1.25, 6.5, 10);
+  list.slice(0, Math.floor((box.y + box.h - top) / step)).forEach((e, i) => {
+    const y = top + i * step + step / 2;
+    const num = e.page == null ? '' : String(e.page);
+    const nw = pen.textWidth(num, size);
+    const t = clipLine(pen, e.title, box.w - nw - 12, size);
+    pen.text(t, box.x, y, { size, color: ctx.ink, baseline: 'middle' });
+    const tw = pen.textWidth(t, size);
+    for (let x = box.x + tw + 2; x < box.x + box.w - nw - 2; x += 1.6) pen.dot(x, y + size * 0.12, 0.13, { fill: ctx.faint });
+    if (num) pen.text(num, box.x + box.w, y, { size, font: 'bold', color: ctx.ink, align: 'r', baseline: 'middle' });
+  });
+};
+
+/* ---------- folha de calibração (núcleo) ---------- */
+PAGE_DRAW.calibration = (pen, box, o, ctx) => { drawCalibration(pen, ctx.pageW || box.w, ctx.pageH || box.h, { title: 'Folha de calibração' }); };
