@@ -34,15 +34,15 @@
 <meta name="twitter:description" content="Monte o miolo de cadernos, planners e agendas personalizados e exporte um PDF vetorial pronto para impressão — sem cadastro, sem enviar seus dados a servidor nenhum.">
 <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-400-normal.woff2">
 <link rel="preload" as="font" type="font/woff2" crossorigin href="assets/arimo-latin-700-normal.woff2">
-<link rel="stylesheet" href="css/base.css?v=260914144257">
-<link rel="stylesheet" href="css/layout.css?v=260914144257">
-<link rel="stylesheet" href="css/studio.css?v=260914144257">
-<link rel="stylesheet" href="css/util.css?v=260914144257">
-<link rel="stylesheet" href="css/print.css?v=260914144257">
-<link rel="stylesheet" href="css/mobile.css?v=260914144257">
-<link rel="stylesheet" href="css/editor.css?v=260914144257">
-<link rel="stylesheet" href="vendor/core/fonts/fonts.css?v=260914144257">
-<link rel="stylesheet" href="vendor/core/shell.css?v=260914144257">
+<link rel="stylesheet" href="css/base.css?v=260914152952">
+<link rel="stylesheet" href="css/layout.css?v=260914152952">
+<link rel="stylesheet" href="css/studio.css?v=260914152952">
+<link rel="stylesheet" href="css/util.css?v=260914152952">
+<link rel="stylesheet" href="css/print.css?v=260914152952">
+<link rel="stylesheet" href="css/mobile.css?v=260914152952">
+<link rel="stylesheet" href="css/editor.css?v=260914152952">
+<link rel="stylesheet" href="vendor/core/fonts/fonts.css?v=260914152952">
+<link rel="stylesheet" href="vendor/core/shell.css?v=260914152952">
 </head>
 <body class="booting">
 <div id="app">
@@ -306,8 +306,9 @@
     <div id="rightSel" hidden>
       <div class="aside-title"><span data-i="sliders"></span> <span id="rs_title">Seção</span></div>
       <p class="rs-group" id="rs_group"></p>
-      <label id="rs_countRow">Quantidade de páginas <span class="v" id="rs_countv"></span>
-        <input type="range" id="rs_count" min="1" max="1000" step="1"></label>
+      <div id="rs_countRow" class="count-row"><span class="fld-lbl">Quantidade de páginas</span>
+        <div class="count-step"><button type="button" class="iconbtn" data-cnt="-1" title="Menos uma">−</button><input type="number" id="rs_countn" min="1" max="2000" inputmode="numeric" aria-label="Quantidade de páginas"><button type="button" class="iconbtn" data-cnt="1" title="Mais uma">+</button></div>
+        <input type="range" id="rs_count" min="1" max="400" step="1" aria-label="Quantidade de páginas"><span class="v" id="rs_countv" hidden></span></div>
       <div id="rs_fields"></div>
       <div class="btnrow mt10">
         <button id="rs_dup" data-i="copy">Duplicar</button>
@@ -521,27 +522,29 @@
   <div class="dbody scrl"><div id="pg_grid" class="pg-grid"></div></div>
 </dialog>
 
-<script defer src="vendor/core/dates.js?v=260914144257"></script>
-<script defer src="vendor/core/blocks.js?v=260914144257"></script>
-<script defer src="vendor/core/binding.js?v=260914144257"></script>
-<script defer src="vendor/core/imgedit.js?v=260914144257"></script>
-<script defer src="vendor/core/shell.js?v=260914144257"></script>
-<script defer src="js/config.js?v=260914144257"></script>
-<script defer src="vendor/core/fonts/metrics.js?v=260914144257"></script>
-<script defer src="vendor/core/ttf.js?v=260914144257"></script>
-<script defer src="vendor/core/jpeg.js?v=260914144257"></script>
-<script defer src="vendor/core/color.js?v=260914144257"></script>
-<script defer src="vendor/core/pdf.js?v=260914144257"></script>
-<script defer src="vendor/core/pen.js?v=260914144257"></script>
-<script defer src="vendor/core/print.js?v=260914144257"></script>
-<script defer src="js/pages.js?v=260914144257"></script>
-<script defer src="js/engine.js?v=260914144257"></script>
-<script defer src="js/io.js?v=260914144257"></script>
-<script defer src="js/mobile.js?v=260914144257"></script>
-<script defer src="js/install.js?v=260914144257"></script>
-<script defer src="js/ui.js?v=260914144257"></script>
-<script defer src="js/editor.js?v=260914144257"></script>
-<script defer src="js/wizard.js?v=260914144257"></script>
-<script defer src="js/shell-ui.js?v=260914144257"></script>
+<script defer src="vendor/core/dates.js?v=260914152952"></script>
+<script defer src="vendor/core/blocks.js?v=260914152952"></script>
+<script defer src="vendor/core/binding.js?v=260914152952"></script>
+<script defer src="vendor/core/imgedit.js?v=260914152952"></script>
+<script defer src="vendor/core/shell.js?v=260914152952"></script>
+<script defer src="js/config.js?v=260914152952"></script>
+<script defer src="vendor/core/fonts/metrics.js?v=260914152952"></script>
+<script defer src="vendor/core/ttf.js?v=260914152952"></script>
+<script defer src="vendor/core/jpeg.js?v=260914152952"></script>
+<script defer src="vendor/core/color.js?v=260914152952"></script>
+<script defer src="vendor/core/pdf.js?v=260914152952"></script>
+<script defer src="vendor/core/pen.js?v=260914152952"></script>
+<script defer src="vendor/core/print.js?v=260914152952"></script>
+<script defer src="vendor/core/canvas-edit.js?v=260914152952"></script>
+<script defer src="js/pages.js?v=260914152952"></script>
+<script defer src="js/engine.js?v=260914152952"></script>
+<script defer src="js/io.js?v=260914152952"></script>
+<script defer src="js/mobile.js?v=260914152952"></script>
+<script defer src="js/install.js?v=260914152952"></script>
+<script defer src="js/ui.js?v=260914152952"></script>
+<script defer src="js/sheet-edit.js?v=260914152952"></script>
+<script defer src="js/editor.js?v=260914152952"></script>
+<script defer src="js/wizard.js?v=260914152952"></script>
+<script defer src="js/shell-ui.js?v=260914152952"></script>
 </body>
 </html>

@@ -51,6 +51,7 @@ const TPL_CATS = [
 ];
 const TPL_CAT = {
   semanal: 'agenda', diario: 'agenda', executiva: 'agenda',
+  'semana-dupla': 'agenda', universitario: 'caderno', brochura: 'caderno', desenho: 'caderno',
   bujo: 'caderno', pautado: 'caderno', estudos: 'caderno', quadriculado: 'caderno', musica: 'caderno', projetos: 'caderno', 'bloco-notas': 'caderno',
   refeicoes: 'planner', financeiro: 'planner', patrimonio: 'planner', 'cinco-min': 'planner', habitos: 'planner', bemestar: 'planner', leitura: 'planner',
 };
@@ -115,7 +116,7 @@ function specialThumb(icon) { return `<span class="tt-ic"><span>${shIcon(icon)}<
 function galleryItems(forPanel) {
   const items = [];
   if (!forPanel) {
-    items.push({ id: '_wiz', name: 'Montar passo a passo', desc: 'Tamanho, ponto de partida, capa e encadernação em 4 perguntas.', variant: 'wizard', always: true, thumb: () => specialThumb('wand') });
+    items.push({ id: '_wiz', name: 'Montar passo a passo', desc: 'Tipo, papel, capa, cores, encadernação e impressão — com prévia real a cada passo.', variant: 'wizard', always: true, thumb: () => specialThumb('wand') });
   }
   TEMPLATES.filter(t => t.id !== 'branco').forEach(t => items.push({
     id: t.id, name: t.name.replace(/\s+(A4|A5|B5)$/, ''), desc: t.desc, cat: TPL_CAT[t.id] || 'caderno', tpl: t,

@@ -114,6 +114,31 @@ function migrate(st) {
     if (src.ink && HEX.test(src.ink)) sec.opts.ink = src.ink;
     if (src.breakBefore) sec.opts.breakBefore = true;
     if (typeof src.footer === 'string' && src.footer.trim()) sec.opts.footer = sanitizeText(src.footer, 80);
+    // edição na folha: ajustes por elemento e textos/imagens livres (validados — vêm de arquivo/localStorage)
+    if (src.el && typeof src.el === 'object') {
+      const el = {};
+      Object.keys(src.el).slice(0, 80).forEach(k => {
+        if (!/^(title|subtitle|owner|logo|monogram|year|text|author|x:[A-Za-z0-9_-]{1,24})$/.test(k)) return;
+        const e = src.el[k] && typeof src.el[k] === 'object' ? src.el[k] : {}, v = {};
+        ['dx', 'dy'].forEach(q => { if (e[q] != null && isFinite(+e[q])) v[q] = clamp(+e[q], -800, 800); });
+        if (e.s != null && isFinite(+e.s)) v.s = clamp(+e.s, 0.25, 5);
+        if (HEX.test(e.color || '')) v.color = e.color;
+        if (typeof e.fam === 'string' && /^[A-Za-z]{2,24}$/.test(e.fam)) v.fam = e.fam;
+        if (e.bold != null) v.bold = !!e.bold;
+        if (e.hide) v.hide = true;
+        el[k] = v;
+      });
+      sec.opts.el = el;
+    }
+    if (Array.isArray(src.extras)) {
+      sec.opts.extras = src.extras.slice(0, 40).map(x => {
+        x = x && typeof x === 'object' ? x : {};
+        const img = x.type === 'image';
+        return { id: /^[A-Za-z0-9_-]{1,24}$/.test(x.id || '') ? x.id : uid(), type: img ? 'image' : 'text',
+          text: img ? '' : sanitizeText(x.text || '', 400),
+          src: img && typeof x.src === 'string' && /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(x.src) && x.src.length < 5e6 ? x.src : '' };
+      }).filter(x => x.type === 'text' || x.src);
+    }
     // página personalizada: valida/migra a grade de blocos (schema versionado)
     if (raw.type === 'custom') {
       sec.opts.layout = (typeof EPBlocks !== 'undefined')
@@ -227,7 +252,8 @@ function cheapOptsSig(o) {
   if (!o) return '';
   let s = '';
   for (const k in o) {
-    const v = o[k];
+    let v = o[k];
+    if (v && typeof v === 'object') v = JSON.stringify(v, (kk, vv) => typeof vv === 'string' && vv.length > 160 ? 'L' + vv.length + vv.slice(-24) : vv);
     s += k + '=' + (typeof v === 'string' && v.length > 160 ? 'L' + v.length + v.slice(0, 20) + v.slice(-20) : v) + ',';
   }
   return s;
@@ -463,6 +489,7 @@ function drawPageInto(pen, pd, idx, opt = {}) {
   if (pd.title != null && pd.title !== '') o.title = pd.title;
   const ctx = pageCtx({ ...pd, pageIndexGlobal: idx });
   ctx.pageW = W; ctx.pageH = H; ctx.bleed = Math.max(0, +opt.bleed || 0);
+  if (opt.hits) ctx.hits = opt.hits;              // edição na folha: caixas dos elementos
   // Capa e divisória usam uma caixa CENTRADA na página (ignoram o desvio da
   // lombada), pra não ficarem tortas. Os demais tipos usam a área útil real.
   const isFull = pd.type === 'cover' || pd.type === 'tab' || pd.type === 'calibration';
