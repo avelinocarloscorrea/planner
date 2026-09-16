@@ -1,5 +1,23 @@
 # Histórico
 
+## 0.5 — efeitos de texto, fundos, marca d'água e Meus projetos
+- **Estilo completo em cada texto da folha**: a barra de edição ganhou itálico,
+  alinhamento, doze estilos prontos (sombra, contorno, vazado, etiqueta,
+  marca-texto, retrô, neon, carimbo…) e o ajuste fino de contorno, fundo atrás
+  do texto e sombra. Em Ajustes: transparência, giro, espaço entre letras,
+  altura da linha, caixa alta, centralizar e camadas. Tudo sai vetorial no PDF.
+- **Fundo das páginas**: cor, degradê (linear ou do centro), 16 estampas
+  vetoriais (poá, xadrez, corações, estrelas, confete, escamas…) ou uma foto
+  com véu claro — para o documento todo ou só para uma seção.
+- **Marca d'água** em sete estilos: texto (cheio ou vazado), selo, carimbo,
+  faixa, borda, ilustração ou a sua imagem, em nove posições.
+- **Meus projetos**: cópias completas guardadas no próprio navegador, com nome
+  e miniatura, na tela inicial e no menu (Ctrl+S). Dá para renomear, duplicar,
+  baixar o `.json` e apagar; o projeto aberto pode se atualizar sozinho.
+- **Modelos novos com estilo**: Rosa Poá, Kraft, Estudos em cores, Agenda da
+  sua marca e Boho.
+- Guia do usuário reescrito com uma seção só sobre editar na folha.
+
 ## 0.4 — edição estilo Canva, ilustrações e capas com nome
 - **Editar direto na folha em qualquer página**: tocar seleciona, arrastar move,
   alças mudam o tamanho, tocar de novo digita ali mesmo. Barra de ícones (fonte,

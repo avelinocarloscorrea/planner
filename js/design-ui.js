@@ -5,6 +5,8 @@
    (parte de app; carregado depois de sheet-edit.js) */
 "use strict";
 
+// O "gate" grava no histórico uma vez por gesto: arrastar um controle vira um
+// único passo de desfazer, não um por pixel.
 const _designGate = EPStudio.gate(() => pushHistory('design'));
 function designRefresh(live) { if (live) refreshWindow(true); else { svgCache.clear(); render(); save(); } if (typeof sheetEditor !== 'undefined') sheetEditor.refresh(); }
 function setBackground(bg, live) { _designGate(live); state.settings.bg = EPBackground.clean(bg); designRefresh(live); if (!live) designSync(); }
@@ -21,7 +23,9 @@ const wmOpts = () => ({ get: () => state.settings.wm, set: setWatermark, pickIma
   ctx: () => ({ ink: state.settings.ink, fam: state.settings.headingFont }), coversLabel: 'Também na capa, divisórias e frases', defaultText: 'Esmeralda Paper' });
 
 let _bgPanel = null, _wmPanel = null, _popPanel = null;
-// fundo aberto a partir da folha: da seção tocada ou do documento inteiro
+// Fundo aberto a partir da página: a pessoa escolhe se vale para o documento
+// inteiro ou só para aquela seção. Abre já no alvo mais provável — se a seção
+// tem fundo próprio, é ele que ela quer mexer.
 function openBackgroundPop(sec) {
   let target = sec && sec.opts && sec.opts.pageBg ? 'sec' : 'doc';
   EPStudio.pop({ id: 'bg', title: 'Fundo das páginas', build: host => {

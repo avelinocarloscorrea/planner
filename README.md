@@ -7,13 +7,19 @@ comemorativas do Brasil, e um editor de blocos para montar páginas do seu
 próprio jeito.
 
 Roda inteira no navegador: sem instalação, sem back-end e **sem enviar nada**.
-O projeto fica só no navegador (`localStorage`); para backup ou levar para
-outro computador, use **Salvar projeto** (`.json`).
+O documento fica só no navegador (`localStorage`) e **Meus projetos** guarda
+cópias completas ali mesmo, com miniatura; para backup ou para levar a outro
+computador, baixe o **arquivo do projeto** (`.json`).
 
 ## O que faz
 
 - Documento com capa, divisórias de seção, índice, ano, metas e páginas de
   calendário/agenda (mensal, semanal, diário), a partir de modelos prontos.
+- **Edição direta na folha**: clicar seleciona o texto, o logo ou uma
+  ilustração; arrastar move; clicar de novo escreve. Fonte, cor, contorno,
+  fundo atrás do texto, sombra, giro, transparência e camadas — vetorial no PDF.
+- **Fundo das páginas** (cor, degradê, estampas ou foto) e **marca d'água** em
+  sete estilos, para o documento todo ou só para uma seção.
 - **Página personalizada**: editor de blocos de tela cheia (texto, título,
   linhas, pontilhado, quadriculado, caixa, tabela, checklist, grade de
   horários, mini calendário, círculos de hábito, imagem, divisor), com grade
