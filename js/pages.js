@@ -142,7 +142,9 @@ function drawHeader(pen, box, ctx, label, showDate) {
     pen.text(ctx.L('data'), box.x + box.w - dateW, box.y + 2, { size: 6, color: faint, tracking: 0.4 });
     pen.line(box.x + box.w - dateW, box.y + bandH - 2.5, box.x + box.w, box.y + bandH - 2.5, { w: 0.3, color: faint });
   }
-  pen.line(box.x, box.y + bandH, box.x + box.w, box.y + bandH, { w: 0.4, color: ink });
+  // Com campo de data, a divisória deve orientar sem virar uma faixa escura na pauta.
+  const headerRule = dateW ? { w: 0.2, color: faint } : { w: 0.4, color: ink };
+  pen.line(box.x, box.y + bandH, box.x + box.w, box.y + bandH, headerRule);
   return { x: box.x, y: box.y + bandH + 4, w: box.w, h: box.h - bandH - 4, recto: box.recto };
 }
 
