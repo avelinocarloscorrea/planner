@@ -84,7 +84,7 @@ function impositionPlan(nPages) {
   const trimBoxes = pos.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h }));
   const slot = (src, k, extra) => (src != null && src >= 0 && src < nPages) ? Object.assign({ src, ox: pos[k].x, oy: pos[k].y, sc,
     clip: { x: pos[k].x, y: pos[k].y, w: pos[k].w, h: pos[k].h } }, extra || {}) : null;
-  const mk = (a, b, ea, eb) => ({ slots: [slot(a, 0, ea), slot(b, 1, eb)].filter(Boolean), marks: segs, foldX: t.foldX, foldY: t.foldY,
+  const mk = (a, b, ea, eb) => ({ slots: [slot(a, 0, ea), slot(b, 1, eb)].filter(Boolean), marks: segs, foldX: mode === 'booklet' ? t.foldX : null, foldY: mode === 'booklet' ? t.foldY : null,
     trimBox: block, bleedBox: block, trimBoxes });
   // verso: montado para virar como página de livro (espelho no eixo x). Se a
   // virada escolhida espelha em y, a folha do verso gira 180°.
