@@ -190,7 +190,12 @@ PAGE_DRAW.lined = (pen, box, o, ctx) => {
   }
   const dash = lineDash(o.lineStyle, o.lineW);
   const step = o.spacing, top = b.y + step;
-  if (o.headerRule) pen.line(b.x + EDGE, top, b.x + b.w - EDGE, top, { w: Math.max(0.35, o.lineW * 2.4), color: patColor(ctx, o, 1.4) });
+  if (o.headerRule) {
+    // A regra de topo acompanha a pauta; com cabeçalho/data ela não deve competir visualmente com o conteúdo.
+    const ruleIntensity = o.header ? 0.55 : 1.4;
+    const ruleWidth = o.header ? Math.max(0.18, o.lineW * 1.2) : Math.max(0.35, o.lineW * 2.4);
+    pen.line(b.x + EDGE, top, b.x + b.w - EDGE, top, { w: ruleWidth, color: patColor(ctx, o, ruleIntensity) });
+  }
   fillLines(pen, b, step, o.lineW, pc, o.headerRule ? top + step : null, { dash });
   if (o.guideLine) for (let y = top + step / 2; y <= b.y + b.h - EDGE + 0.01; y += step)
     pen.line(b.x + EDGE, y, b.x + b.w - EDGE, y, { w: o.lineW * 0.7, color: patColor(ctx, o, 0.4), dash: [0.6, 1.4] });
